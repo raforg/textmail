@@ -1,0 +1,727 @@
+#!/usr/bin/perl -w
+use strict;
+
+# textmail - mail filter to replace MS Word/HTML attachments with plain text
+#
+# Copyright (C) 2003-2004 raf <raf@raf.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# or visit http://www.gnu.org/copyleft/gpl.html
+#
+# 20040617 raf <raf@raf.org>
+
+=head1 NAME
+
+I<textmail> - mail filter to replace MS Word/HTML attachments with plain text
+
+=head1 SYNOPSIS
+
+ usage: formail -s textmail [options]
+ options:
+   -h       - Print the help message then exit
+   -m       - Print the manpage then exit
+   -w       - Print the manpage in html format then exit
+   -r       - Print the manpage in nroff format then exit
+   -M       - Output in mailbox format
+   -W       - Don't replace MS Word attachments with text
+   -E       - Don't replace MS Excel attachments with csv
+   -H       - Don't replace HTML attachments with text
+   -R       - Don't replace RTF attachments with text
+   -P       - Don't replace PDF attachments with text
+   -I       - Don't delete image attachments
+   -A       - Don't delete audio attachments
+   -V       - Don't delete video attachments
+   -X       - Don't delete MS Windows executable attachments
+   -B       - Don't recode text that was base64-encoded
+   -O       - Delete all application/octet-stream attachments
+   -!       - Delete all application/* attachments
+   -D hdrs  - Delete headers (list of header prefixes and filenames)
+   -K types - Keep attachments (list of mimetypes and filenames)
+   -f       - On translation error, keep translation, not original
+
+=head1 DESCRIPTION
+
+I<textmail(1)> filters a mail message, replacing MS Word, MS Excel, HTML,
+RTF and PDF attachments with the plain text contained therein. By default,
+the following attachments are also deleted: image, audio, video and MS
+Windows executables. Any of these actions can be suppressed with the command
+line options.
+
+This is useful for increasing the accessibility of mail messages (by
+reducing their dependence on proprietary file formats), for dramatically
+reducing their size (and the time it takes to download them and the time it
+takes to read them), and for dramatically reducing the risk of mail-bourne
+viruses). Its intended use is as a preprocessor for mailing lists. This is
+more friendly than a strict "No Attachments" policy.
+
+=head1 OPTIONS
+
+=over 4
+
+=item C<-h>
+
+Print the help message then exit.
+
+=item C<-m>
+
+Print the manpage then exit. This is equivalent to executing C<man textmail>
+but this works even when the manpage isn't installed properly.
+
+=item C<-w>
+
+Print the manpage in html format then exit. This lets you install the
+manpage in html format with a command like:
+
+  mkdir -p /usr/local/share/doc/textmail/html &&
+  textmail -w > /usr/local/share/doc/textmail/html/textmail.1.html
+
+=item C<-r>
+
+Print the manpage in nroff format then exit. This lets you install the
+manpage properly with a command like:
+
+  textmail -r > /usr/local/share/man/man1/textmail.1
+
+=item C<-M>
+
+This option adds a mailbox C<From> line at the top and ensures that there is
+a blank line at the bottom of the output. Only use this when the output is
+to be stored in a mailbox file. It is not necessary when the output is to be
+sent to an SMTP server.
+
+=item C<-W>
+
+By default, I<textmail(1)> replaces MS Word attachments with inline plain
+text attachments that contain just the plain text within the original
+document. This option leaves MS Word attachments intact.
+
+=item C<-E>
+
+By default, I<textmail(1)> replaces MS Excel attachments with CSV file
+attachments that contain just the data within the original document. This
+option leaves MS Excel attachments intact.
+
+=item C<-H>
+
+By default, I<textmail(1)> replaces HTML attachments with inline plain text
+attachments that contain just the text within the original document. It also
+reduces text-versus-html alternative attachments to just the text
+attachment. This option leaves HTML (and alternative) attachments intact.
+
+=item C<-R>
+
+By default, I<textmail(1)> replaces RTF attachments with inline plain text
+attachments that contain just the plain text within the original document.
+This option leaves RTF attachments intact.
+
+=item C<-P>
+
+By default, I<textmail(1)> replaces PDF attachments with inline plain text
+attachments that contain just the plain text within the original document.
+This option leaves PDF attachments intact.
+
+=item C<-I>
+
+By default, I<textmail(1)> deletes image attachments. This option leaves
+image attachments intact.
+
+=item C<-A>
+
+By default, I<textmail(1)> deletes audio attachments. This option leaves
+audio attachments intact.
+
+=item C<-V>
+
+By default, I<textmail(1)> deletes video attachments. This option leaves
+video attachments intact.
+
+=item C<-X>
+
+By default, I<textmail(1)> deletes attachments containing MS Windows
+executables. That means, C<application/octet-stream> attachments with the
+following filename extensions: C<com>, C<exe>, C<pif>, C<dll>, C<ocx>,
+C<scr>, C<vbs> and C<js>. This option leaves MS Windows executable
+attachments intact.
+
+=item C<-B>
+
+By default, when text is encountered that is base64-encoded, I<textmail(1)>
+will recode it as either C<7bit> or C<quoted-printable>, whichever is
+appropriate. This option suppresses this recoding.
+
+=item C<-O>
+
+Delete all C<application/octet-stream> attachments, not just MS Windows
+executables. Note that this overrides C<-X> but C<-K> overrides this.
+
+=item C<-!>
+
+Delete all C<application/*> attachments. Note that this overrides C<-X> but
+C<-K> overrides this. Also note that translated documents are no longer
+C<application/*> attachments so they aren't deleted unless their translation
+is suppressed with the appropriate command line option.
+
+=item C<-D> I<hdrs>
+
+Delete particular headers. The I<hdrs> argument is a comma separated list of
+header name prefixes and/or the names of files containing header name
+prefixes (blank lines, whitespace and shell style comments are ignored). For
+example, C<textmail -DX-> deletes all headers whose names begin with C<X->.
+
+=item C<-K> I<types>
+
+By default, I<textmail(1)> deletes several types of non-text attachment. The
+C<-O> and C<-!> options delete even more. This option specifies, by mimetype
+and/or filename extension, a list of attachments not to delete. This
+overrides all deletions.
+
+The I<types> argument is a comma separated list of mimetypes and/or filename
+extensions and/or the names of files containing mimetypes and/or filename
+extensions (blank lines, whitespace and shell style comments are ignored).
+Note that the elements are interpreted as a complete mimetype, if they
+contain a slash character, or as either the C<*> in C<application/*> or as a
+filename extension if they do not contain a slash character. For example,
+C<textmail -Wf!Kdoc> deletes all C<application/*> attachments except MS Word
+documents.
+
+=item C<-f>
+
+Whenever I<textmail(1)> is unable to translate any attachment into text, it
+will leave the attachment intact. This happens when the requisite
+translation software can't be found, when it runs but returns an error code,
+and when it produces an empty file. This option causes the empty translation
+to take the place of the original attachment. Only the name of the
+attachment is preserved. This is needed to ensure plain text even in the
+face of an MS Word document that contains no text (e.g. only images and/or
+viruses).
+
+=back
+
+=head1 EXAMPLES
+
+A I<procmail(1)> recipe that insists on pure text and no C<X-> headers (with
+the output in mailbox format):
+
+  :0 fw
+  | textmail -Mf!DX-
+
+Do the same but to an existing mailbox file:
+
+  formail -s textmail -Mf!DX- < mailbox > mailbox-as-text
+
+Delete all C<application/*> attachments except for PostScript and PDF (and
+don't translate the PDF into text):
+
+  textmail -!PKps,pdf
+
+Delete all C<application/*> attachments except for zip files and gzipped tar
+files:
+
+  textmail -!Ktar.gz,zip
+
+=head1 REQUIREMENTS
+
+MS Word and RTF documents are translated into plain text using I<catdoc(1)>.
+If I<textmail(1)> can't find I<catdoc(1)>, then MS Word and RTF attachments
+are left intact. So make sure that I<catdoc(1)> is installed and in the
+C<$PATH>.
+
+MS Excel documents are translated into csv files using I<xls2csv(1)>. If
+I<textmail(1)> can't find I<xls2csv(1)>, then MS Excel attachments are left
+intact. So make sure that I<xls2csv(1)> is installed and in the C<$PATH>.
+
+HTML documents are translated into plain text using I<lynx(1)>. If
+I<textmail(1)> can't find I<lynx(1)>, then HTML attachments are left intact.
+So make sure that I<lynx(1)> is installed and in the C<$PATH>.
+
+PDF documents are translated into plain text using I<pdftotext(1)>. If
+I<textmail(1)> can't find I<pdftotext(1)>, then PDF attachments are left
+intact. So make sure that I<pdftotext(1)> is installed and in the C<$PATH>.
+
+I<textmail(1)> also requires I<perl(1)>, the I<MIME::Tools(3)> package,
+I<pod2man(1)>, I<pod2html(1)> and I<mktemp(1)>.
+
+If I<textmail(1)> fails to create a temporary directory, or if it is
+instructed to do nothing (i.e. C<-WEHRPIAVX>), then it degenerates into
+I<cat(1)>.
+
+=head1 CAVEAT
+
+If I<textmail(1)> is unable to create a temporary directory (in C</tmp>),
+then it degenerates into I<cat(1)>. This means that without a temporary
+directory, no attachments will be translated or deleted no matter what
+options (even C<-f>) were given to I<textmail(1)>. So make sure that C</tmp>
+is writable. Also make sure that I<mktemp(1)> is available otherwise an
+insecure temporary directory will be created.
+
+=head1 BUGS
+
+Any existing mailbox C<"From "> header is lost forever. The C<-M> option
+creates a new mailbox C<"From "> header using the current time as the
+timestamp. Does this matter?
+
+=head1 SEE ALSO
+
+I<procmail(1)>,
+I<formail(1)>,
+I<catdoc(1)>,
+I<xls2csv(1)>,
+I<lynx(1)>,
+I<pdftotext(1)>,
+I<MIME::Tools(3)>,
+I<pod2man(1)>,
+I<pod2html(1)>
+
+=head1 AUTHOR
+
+20040617 raf <raf@raf.org>
+
+=head1 URL
+
+C<http://raf.org/textmail/>
+
+=cut
+
+# Doco functions: usage and manpage (via $PAGER or as nroff or html)
+
+sub help
+{
+	print
+		"usage: formail -s textmail [options]\n",
+		"options:\n",
+		"  -h       - Print the help message then exit\n",
+		"  -m       - Print the manpage then exit\n",
+		"  -w       - Print the manpage in html format then exit\n",
+		"  -r       - Print the manpage in nroff format then exit\n",
+		"  -M       - Output in mailbox format\n",
+		"  -W       - Don't replace MS Word attachments with text\n",
+		"  -E       - Don't replace MS Excel attachments with csv\n",
+		"  -H       - Don't replace HTML attachments with text\n",
+		"  -R       - Don't replace RTF attachments with text\n",
+		"  -P       - Don't replace PDF attachments with text\n",
+		"  -I       - Don't delete image attachments\n",
+		"  -A       - Don't delete audio attachments\n",
+		"  -V       - Don't delete video attachments\n",
+		"  -X       - Don't delete MS Windows executable attachments\n",
+		"  -B       - Don't recode text that was base64-encoded\n",
+		"  -O       - Delete all application/octet-stream attachments\n",
+		"  -!       - Delete all application/* attachments\n",
+		"  -D hdrs  - Delete headers (list of header prefixes and filenames)\n",
+		"  -K types - Keep attachments (list of mimetypes and filenames)\n",
+		"  -f       - On translation error, keep translation, not original\n",
+		"\n",
+		"Filters a mail message, replacing MS Word, MS Excel, HTML, RTF\n",
+		"and PDF attachments with the plain text contained therein.\n",
+		"By default, the following attachments are also deleted:\n",
+		"image, audio, video and MS Windows executables.\n";
+	exit;
+}
+
+sub man
+{
+	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
+	system "pod2man $noquotes $0 | nroff -man | " . ($ENV{PAGER} || 'more');
+	exit;
+}
+
+sub nroff
+{
+	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
+	system "pod2man $noquotes $0";
+	exit;
+}
+
+sub html
+{
+	system "pod2html --noindex $0";
+	unlink 'pod2html-dircache', 'pod2html-itemcache';
+	exit;
+}
+
+# Initialize
+
+my %opt;
+use Getopt::Std;
+help() unless getopts('hmrwMWEHRPIAVXBO!D:K:f', \%opt);
+help() if exists $opt{h};
+man() if exists $opt{m};
+nroff() if exists $opt{r};
+html() if exists $opt{w};
+my $mailbox = exists $opt{M};
+my $catdoc = find('catdoc');
+my $xls2csv = find('xls2csv');
+my $lynx = find('lynx');
+my $pdftotext = find('pdftotext');
+my $mktemp = find('mktemp');
+my @exe = qw(com exe pif dll ocx scr vbs js);
+my $force = exists $opt{f};
+my $remove_word = (defined $catdoc || $force) && ! exists $opt{W};
+my $remove_excel = (defined $xls2csv || $force) && ! exists $opt{E};
+my $remove_html = (defined $lynx || $force) && ! exists $opt{H};
+my $remove_rtf = (defined $catdoc || $force) && ! exists $opt{R};
+my $remove_pdf = (defined $pdftotext || $force) && ! exists $opt{P};
+my $remove_images = ! exists $opt{I};
+my $remove_audio = ! exists $opt{A};
+my $remove_video = ! exists $opt{V};
+my $remove_exe = ! exists $opt{X};
+my $recode_base64_text = ! exists $opt{B};
+my $remove_octet = exists $opt{O};
+my $remove_application = exists $opt{'!'};
+my $remove_headers = exists $opt{D};
+my @headers = get_file($opt{D}) if $remove_headers;
+my $keep_attachments = exists $opt{K};
+my @keep = get_file($opt{K}) if $keep_attachments;
+my $removing = $remove_word || $remove_excel || $remove_html || $remove_rtf || $remove_pdf || $remove_images || $remove_audio || $remove_video || $remove_exe || $recode_base64_text || $remove_octet || $remove_application || $remove_headers;
+chop(my $tmp = `$mktemp -dq /tmp/textmail.XXXXXX`) if $removing && defined $mktemp;
+if (!$removing || (($? || !defined $tmp || ! -d $tmp) && !mkdir($tmp = "/tmp/textmail.$$", 0700)))
+{
+	exec '/bin/cat' or print STDERR ''; # suppress warning
+	print while (<STDIN>); # slow cat if exec fails
+	exit;
+};
+
+# Filter the mail message on stdin into text on stdout
+
+use POSIX;
+use MIME::Parser;
+my $parser = new MIME::Parser;          # Create the MIME parser
+$parser->output_dir($tmp);              # Tell it where to work
+my $entity = $parser->parse(\*STDIN);   # Parse stdin
+$entity->make_multipart;                # Make it a multipart
+$entity = textmail($entity);            # Translate the message
+$entity->make_singlepart;               # Reduce to singlepart
+$entity->sync_headers(Nonstandard => 'ERASE', Length => 'ERASE'); # Clean up mime headers
+my $out = $entity->as_string;           # Get the result as a string
+$out .= "\n" unless $out =~ /\n$/;      # Guarantee a terminating newline
+print($out), done() unless $mailbox;    # Print it (unless mailbox format)
+print mailbox_header($entity), $out;    # Print it in mailbox format
+print "\n" unless $out =~ /\n\n$/;      # Guarantee terminating blank line
+done();
+
+# Clean up on exit
+
+sub done
+{
+	$entity->purge;                         # Clean up any files
+	rmdir($tmp) or system("rm -rf $tmp");   # Remove the directory
+	exit;
+}
+
+# Translate a multipart mail message
+
+sub textmail
+{
+	my $entity = shift;
+
+	# Remove headers
+
+	if ($remove_headers)
+	{
+		for my $tag ($entity->head->tags)
+		{
+			$entity->head->delete($tag) if $tag =~ /^(?:@{[join '|', @headers]})/i;
+		}
+	}
+
+	# Reduce alternative text-versus-html to just the text
+
+	if ($remove_html && $entity->effective_type eq 'multipart/alternative')
+	{
+		my @alt = $entity->parts;
+
+		if (@alt == 2)
+		{
+			if ($alt[0]->effective_type eq 'text/plain' && $alt[1]->effective_type eq 'text/html' ||
+				$alt[1]->effective_type eq 'text/plain' && $alt[0]->effective_type eq 'text/html')
+			{
+				my $index = ($alt[0]->effective_type eq 'text/plain') ? 0 : 1;
+				$alt[1 - $index]->bodyhandle->purge;
+				my $plain = $alt[$index];
+
+				my %mime_headers = map { ($_, $plain->head->get($_)) } grep { /^Content-/i } $plain->head->tags;
+				$plain->head($entity->head);
+				$plain->head->replace($_, $mime_headers{$_}) for (keys %mime_headers);
+				return debase64($plain);
+			}
+		}
+	}
+
+	# Process parts
+
+	my @parts = $entity->parts;
+
+	for (my $i = 0; $i < @parts; ++$i)
+	{
+		# Replace MS Word attachments with plain text (via catdoc)
+
+		if ($remove_word && isa($parts[$i], qr/.*ms-?word/, qr/\.doc$/i))
+		{
+			$parts[$i] = translate($parts[$i], 'doc', 'txt', $catdoc);
+			next;
+		}
+
+		# Replace MS Excel attachments with csv (via xls2csv)
+
+		if ($remove_excel && isa($parts[$i], qr/.*ms-?excel/, qr/\.xls$/i))
+		{
+			$parts[$i] = translate($parts[$i], 'xls', 'csv', $xls2csv);
+			next;
+		}
+
+		# Replace HTML attachments with plain text (via lynx -dump)
+
+		if ($remove_html && $parts[$i]->effective_type =~ 'text/html')
+		{
+			$parts[$i] = translate($parts[$i], 'html,htm', 'txt', "$lynx -dump");
+			next;
+		}
+
+		# Replace RTF attachments with plain text (via catdoc)
+
+		if ($remove_rtf && isa($parts[$i], qr/rtf/, qr/\.rtf$/i))
+		{
+			$parts[$i] = translate($parts[$i], 'rtf', 'txt', $catdoc);
+			next;
+		}
+
+		# Replace PDF attachments with plain text (via pdftotext)
+
+		if ($remove_pdf && isa($parts[$i], qr/pdf/, qr/\.pdf$/i))
+		{
+			$parts[$i] = translate($parts[$i], 'pdf', 'txt', $pdftotext);
+			next;
+		}
+
+		# Remove images, audio, video, MS Windows executables, octet streams, application/*
+
+		if (!protected($parts[$i]) &&
+			($remove_images && $parts[$i]->effective_type =~ /^image\// ||
+			$remove_audio && $parts[$i]->effective_type =~ /^audio\// ||
+			$remove_video && $parts[$i]->effective_type =~ /^video\// ||
+			$remove_exe && $parts[$i]->effective_type =~ /^application\/octet-stream/ && $parts[$i]->head->recommended_filename =~ /\.(?:@{[join '|', @exe]})(?:\?=)?$/i ||
+			$remove_octet && $parts[$i]->effective_type =~ /^application\/octet-stream/ ||
+			$remove_application && $parts[$i]->effective_type =~ /^application\//))
+		{
+			$parts[$i]->bodyhandle->purge;
+			splice @parts, $i--, 1;
+			next;
+		}
+
+		# Don't use base64 encoding for text
+
+		$parts[$i] = debase64($parts[$i]);
+
+		# Nest
+
+		$parts[$i] = textmail($parts[$i]);
+	}
+
+	# Replace original parts with processed parts
+
+	$entity->parts(\@parts);
+
+	return $entity;
+}
+
+# Do we need to keep this attachment?
+
+sub protected
+{
+	$entity = shift;
+
+	return 0 unless @keep;
+
+	for my $spec (map { quotemeta } @keep)
+	{
+		return 1 if $spec =~ /\// && $entity->effective_type =~ /^$spec/i;
+		return 1 if $spec !~ /\// && $entity->effective_type =~ /^application\/$spec/i;
+		return 1 if $spec !~ /\// && defined $entity->head->recommended_filename && $entity->head->recommended_filename =~ /\.$spec(?:\?=)?$/i;
+	}
+
+	return 0;
+}
+
+# Check if a part is of the desired type
+
+sub isa
+{
+	my $entity = shift;
+	my $type = shift;
+	my $ext = shift;
+
+	return
+		$entity->effective_type =~ /^application\/$type/ ||
+		$entity->effective_type =~ /^application\/octet-stream/ &&
+			$entity->head->recommended_filename =~ $ext;
+}
+
+# Return a translated part
+
+sub translate
+{
+	my $part = shift;
+	my @ext = split /,/, shift;
+	my $fmt = shift;
+	my $cmd = shift;
+
+	my $body = $part->bodyhandle;
+	my $origpath = $body->path;
+	my $textpath = $origpath;
+	$textpath =~ s/\.(?:@{[join '|', @ext]})$/.$fmt/i;
+	my $textname = $part->head->recommended_filename;
+	$textname =~ s/\.(?:@{[join '|', @ext]})((?:\?=)?)$/.$fmt$1/i if defined $textname;
+
+	while (-f $textpath) # avoid filename clashes
+	{
+		if ($textpath =~ /\.(\d+)\.txt(?:\?=)?$/)
+		{
+			my $count = $1 + 1;
+			$textpath =~ s/\.\d+\.(txt(?:\?=)?)$/.$count.$1/;
+		}
+		else
+		{
+			$textpath =~ s/\.(txt(?:\?=)?)$/.1.$1/;
+		}
+	}
+
+	if ($force && !defined $cmd)
+	{
+		open(TEXT, ">$textpath");
+		close(TEXT);
+	}
+	elsif (system($cmd . ' ' . quotemeta($origpath) . ' > ' . quotemeta($textpath)) || (-s $origpath && -z $textpath))
+	{
+		unless ($force)
+		{
+			unlink($textpath);
+			return $part;
+		}
+	}
+
+	$body->purge;
+
+	return MIME::Entity->build
+	(
+		Disposition => ($fmt eq 'txt' ? 'inline' : 'attachment'),
+		Filename => $textname,
+		Path => $textpath,
+		'X-Mailer' => undef # or MIME::Parser will add one
+	);
+}
+
+# Recode base64-encoded text as 7bit or quoted-printable
+
+sub debase64
+{
+	my $entity = shift;
+
+	# Do we need to do anthing?
+
+	return $entity unless $recode_base64_text;
+	my $type = $entity->effective_type;
+	my $encoding = $entity->head->get('Content-transfer-encoding');
+	return $entity unless $type =~ /^text\// && defined $encoding && $encoding =~ /^base64/;
+
+	# Identify the appropriate encoding to use
+
+	my $maxlen = 0;
+	my $ascii = 0;
+	my $highbit = 0;
+	my $text = $entity->bodyhandle->as_string;
+
+	for (split /[\r\n]+/, $text)
+	{
+		my $len = length;
+		$maxlen = $len if $len > $maxlen;
+		$highbit += tr/\200-\377//d;
+		$ascii += length;
+	}
+
+	$encoding = ($maxlen <= 1000 && $highbit == 0) ? '7bit' : 'quoted-printable';
+
+	$entity->head->replace('Content-transfer-encoding', $encoding);
+
+	# Convert DOS text files into UNIX text files
+
+	if ($text =~ /\r\n/ && open DATA, '>' . $entity->bodyhandle->path)
+	{
+		$text =~ tr/\r//d;
+		print DATA $text;
+		close DATA;
+	}
+
+	return $entity;
+}
+
+# Generate a mailbox "From " header
+
+sub mailbox_header
+{
+	my $entity = shift;
+
+	my $from = $entity->head->get('Sender');
+	$from = $entity->head->get('From') unless defined $from;
+	chomp($from), $from =~ s/\s*\(.*\)\s*// if defined $from;
+	$from = 'unknown@unknown.com' unless defined $from;
+	$from = $1 if $from =~ /<([^>]+)>/;
+
+	return "From $from  " . ctime(time());
+}
+
+# Parse a data file
+
+sub get_file
+{
+	my $spec = shift;
+	my @list;
+
+	for my $pat (split /[,\s]+/, $spec)
+	{
+		if (-r $pat)
+		{
+			open HDRS, $pat or next;
+
+			while (<HDRS>)
+			{
+				chop while (/[\n\r]$/);
+				s/^\s+//;
+				s/#.*$//;
+				s/\s+$//;
+				next if /^$/;
+				push @list, $_;
+			}
+
+			close HDRS;
+		}
+		else
+		{
+			push @list, $pat;
+		}
+	}
+
+	return @list;
+}
+
+# Locate a command in the $PATH
+
+sub find
+{
+	my $cmd = shift;
+
+	return $_ for (grep { -x $_ } map { "$_/$cmd" } split /:/, $ENV{PATH});
+	return undef;
+}
+
+# vi:set ts=4 sw=4:
