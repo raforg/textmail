@@ -1,3 +1,8 @@
+20050520
+
+    - Replace the use of MIME::Parser with internal minimail (much faster)
+    - Documentation improvements
+
 20050419
 
     - Handle winmail.dat (suppress with -U option)
