@@ -1,3 +1,8 @@
+20050527
+
+    - Fixed mail2multipart/mail2singlepart for message/rfc822 messages
+    - Recurse into message/rfc822 content
+
 20050520
 
     - Replace the use of MIME::Parser with internal minimail (much faster)

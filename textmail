@@ -20,7 +20,7 @@ use strict;
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # or visit http://www.gnu.org/copyleft/gpl.html
 #
-# 20050520 raf <raf@raf.org>
+# 20050527 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -318,7 +318,7 @@ C<http://raf.org/minimail/>
 
 =head1 AUTHOR
 
-20050520 raf <raf@raf.org>
+20050527 raf <raf@raf.org>
 
 =head1 URL
 
@@ -514,7 +514,8 @@ sub mail2multipart
 	return $m if exists $m->{mime_type} && $m->{mime_type} =~ /^multipart\//i;
 	my $p = {};
 	append_header($p, $_) for grep { /^content-/i } @{$m->{headers}};
-	$p->{body} = $m->{body} if exists $m->{body};
+	$p->{body} = delete $m->{body} if exists $m->{body};
+	$p->{mime_message} = delete $m->{mime_message} if exists $m->{mime_message};
 	$p->{mime_type} = $m->{mime_type} if exists $m->{mime_type};
 	$m->{mime_type} = 'multipart/mixed';
 	$m->{mime_boundary} = exists $m->{mime_prev_boundary} ? delete $m->{mime_prev_boundary} : join '', map { substr $bchar, int(rand(length $bchar)), 1 } 0..30;
@@ -524,7 +525,6 @@ sub mail2multipart
 	append_header($m, 'MIME-Version: 1.0') unless exists $m->{header} && exists $m->{header}->{'mime-version'};
 	append_header($m, "Content-Type: $m->{mime_type}; boundary=\"$m->{mime_boundary}\"");
 	$m->{mime_parts} = [$p];
-	delete $m->{body};
 	return $m;
 }
 
@@ -532,13 +532,13 @@ sub mail2singlepart
 {
 	my $m = shift;
 	$m->{mime_message} = mail2singlepart($m->{mime_message}), return $m if exists $m->{mime_type} && $m->{mime_type} =~ /^message\//i;
-	return $m unless exists $m->{mime_type} && $m->{mime_type} =~ /^multipart\//i;
-	return $m if @{$m->{mime_parts}} > 1;
+	return $m unless exists $m->{mime_type} && $m->{mime_type} =~ /^multipart\//i && @{$m->{mime_parts}} <= 1;
 	my $p = shift @{$m->{mime_parts}};
 	$m->{mime_prev_boundary} = delete $m->{mime_boundary} if exists $m->{mime_boundary};
 	$m->{mime_prev_preamble} = delete $m->{mime_preamble} if exists $m->{mime_preamble};
 	$m->{mime_prev_epilogue} = delete $m->{mime_epilogue} if exists $m->{mime_epilogue};
 	$m->{body} = $p->{body} if exists $p->{body};
+	$m->{mime_message} = $p->{mime_message} if exists $p->{mime_message};
 	delete $m->{mime_type}; $m->{mime_type} = $p->{mime_type} if exists $p->{mime_type};
 	delete $m->{mime_parts}; $m->{mime_parts} = $p->{mime_parts} if exists $p->{mime_parts};
 	$m->{mime_boundary} = $p->{mime_boundary} if exists $p->{mime_boundary};
@@ -1062,6 +1062,7 @@ sub textmail
 
 		# Nest
 
+		$parts[$i]->{mime_message} = mail2singlepart(textmail(mail2multipart($parts[$i]->{mime_message}), 1)) if exists $parts[$i]->{mime_message};
 		$parts[$i] = textmail($parts[$i], 1) if exists $parts[$i]->{mime_parts};
 	}
 
