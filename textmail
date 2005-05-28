@@ -20,7 +20,7 @@ use strict;
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # or visit http://www.gnu.org/copyleft/gpl.html
 #
-# 20050527 raf <raf@raf.org>
+# 20050528 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -318,7 +318,7 @@ C<http://raf.org/minimail/>
 
 =head1 AUTHOR
 
-20050527 raf <raf@raf.org>
+20050528 raf <raf@raf.org>
 
 =head1 URL
 
@@ -705,7 +705,7 @@ sub newmail # rfc2822, rfc2045, rfc2046, rfc2183 (also rfc3282, rfc3066, rfc2424
 	use Sys::Hostname; append_header($m, "Message-ID: <@{[time]}.$$.@{[++$unique]}\@@{[hostname]}>") if grep { /^(?:date|from|sender|reply-to)$/i } keys %a and !grep { /^message-id$/i } keys %a;
 	append_header($m, "Content-Type: $type" . ($bound ? newparam('boundary', $bound) : '') . ($char =~ /^us-ascii$/i ? '' : newparam('charset', $char))) unless $type =~ /^text\/plain$/i && $char =~ /^us-ascii$/i;
 	append_header($m, "Content-Transfer-Encoding: $enc") unless $enc =~ /^7bit$/i;
-	append_header($m, "Content-Disposition: $disp" . ($a{filename} ? newparam('filename', $a{filename}) : '') . ($a{created} ? newparam('creation-date', $a{created}) : '') . ($a{modified} ? newparam('modification-date', $a{modified}) : '') . ($a{read} ? newparam('read-date', $a{read}) : '') . ($a{size} ? newparam('size', $a{size}) : '')) if $a{filename} || $a{created} || $a{modified} || $a{read} || $a{size};
+	append_header($m, "Content-Disposition: $disp" . ($a{filename} ? newparam('filename', $a{filename}) : '') . ($a{size} ? newparam('size', $a{size}) : '')) if $a{filename} || $a{size};
 	append_header($m, "Content-@{[ucfirst $_]}: $a{$_}") for grep { $a{$_} } qw(description language duration location base features alternative);
 	append_header($m, "Content-@{[uc $_]}: $a{$_}") for grep { $a{$_} } qw(id md5);
 	($m->{mime_type}, $m->{mime_boundary}, $m->{mime_parts}) = ($type =~ /^\s*([\w\/.-]+)/, $bound, $a{parts} || []) if $multi;
@@ -1014,7 +1014,7 @@ sub textmail
 
 		if ($remove_html && isa($parts[$i], 'text/html'))
 		{
-			$parts[$i] = translate($parts[$i], 'html,htm', 'txt', (defined $lynx) ? "$lynx -dump" : undef);
+			$parts[$i] = translate($parts[$i], 'html,htm', 'txt', (defined $lynx) ? "$lynx -dump -force_html" : undef);
 			next;
 		}
 
@@ -1120,6 +1120,7 @@ sub translate
 	my $origpath = filename($part);
 	my $textpath = $origpath;
 	$textpath =~ s/\.(?:@{[join '|', @ext]})$/.$fmt/i;
+	$textpath .= ".$fmt" unless $textpath =~ /\.\Q$fmt\E$/i;
 	return newmail(filename => $textpath, body => '') if !defined $cmd && $force;
 	my $origdata = body($part);
 	open A, ">$tmp/$origpath" and do { print A $origdata; close A };

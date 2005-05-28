@@ -1,3 +1,8 @@
+20050528
+
+    - Fixed translation of content with no file name extensions
+    - Stopped creating Content-Disposition parameters (except filename and size)
+
 20050527
 
     - Fixed mail2multipart/mail2singlepart for message/rfc822 messages
