@@ -1,3 +1,8 @@
+20050926
+
+    - Use antiword in preference to catdoc for translating msword documents
+    - Fixed deletion of temporary directory (broken since 20050520)
+
 20050528
 
     - Fixed translation of content with no file name extensions

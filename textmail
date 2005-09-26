@@ -20,7 +20,7 @@ use strict;
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # or visit http://www.gnu.org/copyleft/gpl.html
 #
-# 20050528 raf <raf@raf.org>
+# 20050926 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -272,10 +272,10 @@ delete windows executables (with output in mailbox format):
 
 =head1 REQUIREMENTS
 
-MS Word and RTF documents are translated into plain text using I<catdoc(1)>.
-If I<textmail(1)> can't find I<catdoc(1)>, then MS Word and RTF attachments
-are left intact. So make sure that I<catdoc(1)> is installed and in the
-C<$PATH>.
+MS Word and RTF documents are translated into plain text using
+I<antiword(1)> or I<catdoc(1)>. If I<textmail(1)> can't find I<antiword> or
+I<catdoc(1)>, then MS Word and RTF attachments are left intact. So make sure
+that I<antiword(1)> or I<catdoc(1)> is installed and in the C<$PATH>.
 
 MS Excel documents are translated into csv files using I<xls2csv(1)>. If
 I<textmail(1)> can't find I<xls2csv(1)>, then MS Excel attachments are left
@@ -308,6 +308,7 @@ temporary directory will be created.
 =head1 SEE ALSO
 
 I<procmail(1)>,
+I<antiword(1)>,
 I<catdoc(1)>,
 I<xls2csv(1)>,
 I<lynx(1)>,
@@ -318,7 +319,7 @@ C<http://raf.org/minimail/>
 
 =head1 AUTHOR
 
-20050528 raf <raf@raf.org>
+20050926 raf <raf@raf.org>
 
 =head1 URL
 
@@ -891,6 +892,7 @@ nroff if exists $opt{r};
 html if exists $opt{w};
 my $mailbox = exists $opt{M};
 my $catdoc = find('catdoc');
+my $antiword = find('antiword') || $catdoc;
 my $xls2csv = find('xls2csv');
 my $lynx = find('lynx');
 my $pdftotext = find('pdftotext');
@@ -898,7 +900,7 @@ my $mktemp = find('mktemp');
 paths() if exists $opt{'?'};
 my @exe = qw(com exe pif dll ocx scr vbs js);
 my $force = exists $opt{f};
-my $remove_word = (defined $catdoc || $force) && ! exists $opt{W};
+my $remove_word = (defined $antiword || $force) && ! exists $opt{W};
 my $remove_excel = (defined $xls2csv || $force) && ! exists $opt{E};
 my $remove_html = (defined $lynx || $force) && ! exists $opt{H};
 my $remove_rtf = (defined $catdoc || $force) && ! exists $opt{R};
@@ -931,15 +933,17 @@ formail(sub { <> }, sub
 {
 	my $m = mail2singlepart(textmail(mail2multipart(shift)));
 	delete_header($m, qr/(?:content-length|lines)/i);
-	$m = mail2mbox($m) if $mailbox;
-	print mail2str($m);
+	print mail2str($mailbox ? mail2mbox($m) : $m);
 });
+
+rmdir $tmp or system "rm -rf $tmp";
 
 # Print paths to help applications then exit
 
 sub paths
 {
-	print(defined $catdoc ? $catdoc : "catdoc not found: MS Word and RTF will not be translated", "\n");
+	print(defined $antiword ? $antiword : "antiword/catdoc not found: MS Word will not be translated", "\n");
+	print(defined $catdoc ? $catdoc : "catdoc not found: MS RTF will not be translated", "\n");
 	print(defined $xls2csv ? $xls2csv : "xls2csv not found: MS Excel with not be translated", "\n");
 	print(defined $lynx ? $lynx : "lynx not found: HTML will not be translated", "\n");
 	print(defined $pdftotext ? $pdftotext : "pdftotext not found: PDF will not be translated", "\n");
@@ -994,11 +998,11 @@ sub textmail
 
 	for (my $i = 0; $i < @parts; ++$i)
 	{
-		# Replace MS Word attachments with plain text (via catdoc)
+		# Replace MS Word attachments with plain text (via antiword/catdoc)
 
 		if ($remove_word && isa($parts[$i], qr/.*ms-?word/i, qr/\.doc$/i))
 		{
-			$parts[$i] = translate($parts[$i], 'doc', 'txt', $catdoc);
+			$parts[$i] = translate($parts[$i], 'doc', 'txt', $antiword);
 			next;
 		}
 
@@ -1118,9 +1122,10 @@ sub translate
 
 	return $part if !defined $cmd && !$force;
 	my $origpath = filename($part);
+	$origpath .= '.' . $ext[0] unless $origpath =~ /\.(?:@{[join '|', @ext]})$/i;
 	my $textpath = $origpath;
 	$textpath =~ s/\.(?:@{[join '|', @ext]})$/.$fmt/i;
-	$textpath .= ".$fmt" unless $textpath =~ /\.\Q$fmt\E$/i;
+	$textpath .= ".$fmt" if $textpath eq $origpath;
 	return newmail(filename => $textpath, body => '') if !defined $cmd && $force;
 	my $origdata = body($part);
 	open A, ">$tmp/$origpath" and do { print A $origdata; close A };
