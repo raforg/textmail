@@ -1,3 +1,11 @@
+20051111
+
+    - Extract long names for attachments inside winmail.dat attachments
+    - Convert bad characters in filenames into underscore rather than dash
+    - Added -S option to override underscore in the above change
+    - Handled Outlook2003's mislabelling of csv as application/vnd.ms-excel
+    - Fixed comment stripping of files for -D and -K option arguments
+
 20050926
 
     - Use antiword in preference to catdoc for translating msword documents
