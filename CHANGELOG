@@ -1,3 +1,11 @@
+20051121
+
+    - Removed the -S option's argument (now only option is space or underscore)
+    - Added the -Z option to translate multipart/signed attachments
+    - Fixed loss of original mbox From_ header in certain cases
+    - Added the -T option to output in raw mail format
+    - If antiword fails, try catdoc (for rtf pretending to be msword doc)
+
 20051111
 
     - Extract long names for attachments inside winmail.dat attachments

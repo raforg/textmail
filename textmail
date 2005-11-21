@@ -20,7 +20,7 @@ use strict;
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # or visit http://www.gnu.org/copyleft/gpl.html
 #
-# 20051111 raf <raf@raf.org>
+# 20051121 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -35,6 +35,7 @@ I<textmail> - mail filter to replace MS Word/HTML attachments with plain text
    -w       - Print the manpage in html format then exit
    -r       - Print the manpage in nroff format then exit
    -M       - Output in mailbox format (mboxrd)
+   -T       - Output in raw mail format (for smtp)
    -W       - Don't replace MS Word attachments with text
    -E       - Don't replace MS Excel attachments with csv
    -H       - Don't replace HTML attachments with text
@@ -47,7 +48,8 @@ I<textmail> - mail filter to replace MS Word/HTML attachments with plain text
    -V       - Don't delete video attachments
    -X       - Don't delete MS Windows executable attachments
    -B       - Don't recode text that was base64-encoded
-   -S ' '   - Replace spaces in filenames with ' ' (default is '_')
+   -S       - Don't replace spaces in filenames with underscores
+   -Z       - Do translate signed content (discards signatures)
    -O       - Delete all application/octet-stream attachments
    -!       - Delete all application/* attachments
    -D hdrs  - Delete headers (list of header prefixes and filenames)
@@ -102,13 +104,19 @@ manpage with a command like:
 
 =item C<-M>
 
-This option adds a mailbox C<From> line at the top if there isn't one
-already and ensures that there is a blank line at the bottom of the output.
-It also performs mailbox quoting on any lines in the body that look like
-mailbox C<From> headers. Only use this when the output is to be stored
-directly in a mailbox file. It is not necessary when the output is to be
-sent to an SMTP server or when I<textmail> is being used as a mail filter by
-I<procmail(1)>.
+This option causes the output to be in mboxrd format by adding a mailbox
+C<From> line at the top if there isn't one already and ensures that there is
+a blank line at the bottom of the output. It also performs mailbox quoting
+on any lines in the body that look like mailbox C<From> headers. Use this
+when the output is to be stored directly in a mailbox file. It is not
+necessary when I<textmail> is being used as a mail filter by I<procmail(1)>.
+
+=item C<-T>
+
+This option causes the output to be in raw mail format by removing any
+mailbox C<From> line and by not performing mailbox quoting. Use this when
+the output is to be sent directly to an SMTP server. It is not necessary
+when I<textmail> is being used as a mail filter by I<procmail(1)>.
 
 =item C<-W>
 
@@ -191,14 +199,22 @@ appropriate. This option suppresses this recoding. Note that if the text is
 large enough and contains a high enough proportion of non-ASCII characters,
 it will remain C<base64>-encoded to minimise space.
 
-=item C<-S> I<' '>
+=item C<-S>
 
-When translating files, I<textmail> replaces bad characters such as space
-characters with the underscore character. This option lets you specify a
-character other than underscore to which bad filename characters will be
-converted. In other words, you can use this option to preserve space
-characters in attachment filenames (other bad filename characters will then
-be converted to spaces as well).
+When translating attachments, I<textmail> replaces bad filename characters
+such as space characters with the underscore character. This option causes
+underscore characters to subsequently be converted into space characters. In
+other words, you can use this option to preserve space characters in
+attachment filenames (other bad filename characters will then be converted
+to spaces as well).
+
+=item C<-Z>
+
+By default, I<textmail> will not translate C<multipart/signed> attachments.
+This option causes C<multipart/signed> attachments to be replaced by the
+signed attachment contained therein, discarding the signature control data.
+The no-longer-signed data is then translated to text as normal. Note that
+C<multipart/encrypted> attachments are never translated.
 
 =item C<-O>
 
@@ -278,7 +294,7 @@ doesn't translate the attachments contained therein into text and doesn't
 delete windows executables (with output in mailbox format):
 
   :0 fw
-  | textmail -MWEHRPLIAVX
+  | textmail -MWEHRPLIAVXS
 
 =head1 REQUIREMENTS
 
@@ -307,8 +323,6 @@ to do nothing (i.e. C<-WEHRPULIAVX>), then it degenerates into I<cat(1)>.
 
 =head1 CAVEAT
 
-Mail messages that are signed or encrypted are not translated.
-
 The latest version of I<xls2csv(1)> at the time of writing (i.e.
 catdoc-0.93.3) loses data.
 
@@ -333,7 +347,7 @@ C<http://raf.org/minimail/>
 
 =head1 AUTHOR
 
-20051111 raf <raf@raf.org>
+20051121 raf <raf@raf.org>
 
 =head1 URL
 
@@ -353,6 +367,7 @@ sub help
 		"  -w       - Print the manpage in html format then exit\n",
 		"  -r       - Print the manpage in nroff format then exit\n",
 		"  -M       - Output in mailbox format\n",
+		"  -T       - Output in raw mail format (for smtp)\n",
 		"  -W       - Don't replace MS Word attachments with text\n",
 		"  -E       - Don't replace MS Excel attachments with csv\n",
 		"  -H       - Don't replace HTML attachments with text\n",
@@ -365,7 +380,8 @@ sub help
 		"  -V       - Don't delete video attachments\n",
 		"  -X       - Don't delete MS Windows executable attachments\n",
 		"  -B       - Don't recode text that was base64-encoded\n",
-		"  -S ' '   - Replace spaces in filenames with ' ' (default is '_')\n",
+		"  -S       - Don't replace spaces in filenames with underscores\n",
+		"  -Z       - Do translate signed content (discards signatures)\n",
 		"  -O       - Delete all application/octet-stream attachments\n",
 		"  -!       - Delete all application/* attachments\n",
 		"  -D hdrs  - Delete headers (list of header prefixes and filenames)\n",
@@ -727,6 +743,7 @@ sub newmail # rfc2822, rfc2045, rfc2046, rfc2183 (also rfc3282, rfc3066, rfc2424
 	($m->{mime_type}, $m->{mime_boundary}, $m->{mime_parts}) = ($type =~ /^\s*([\w\/.-]+)/, $bound, $a{parts} || []) if $multi;
 	($m->{mime_type}, $m->{mime_message}) = ($type =~ /^\s*([\w\/.-]+)/, $a{message} || {}) if $msg;
 	$m->{body} = encode($a{body} || '', $enc) unless $multi || $msg;
+	$m->{mbox} = $a{mbox} if exists $a{mbox} && defined $a{mbox} && length $a{mbox};
 	return $m;
 }
 
@@ -918,14 +935,17 @@ sub winmail
 
 my %opt;
 use Getopt::Std;
-help unless getopts 'hmrwMWEHRPLUIAVXBS:O!D:K:f?', \%opt;
+help unless getopts 'hmrwMTWEHRPLUIAVXBSZO!D:K:f?', \%opt;
 help if exists $opt{h};
 man if exists $opt{m};
 nroff if exists $opt{r};
 html if exists $opt{w};
 my $mailbox = exists $opt{M};
+my $raw = exists $opt{T};
+die "textmail: The -M and -T options are incompatible\n" if $mailbox && $raw;
 my $catdoc = find('catdoc');
-my $antiword = find('antiword') || $catdoc;
+my $antiword = find('antiword');
+$antiword = $antiword ? $catdoc ? "$antiword|$catdoc" : $antiword : $catdoc;
 my $xls2csv = find('xls2csv');
 my $lynx = find('lynx');
 my $pdftotext = find('pdftotext');
@@ -945,14 +965,15 @@ my $remove_audio = ! exists $opt{A};
 my $remove_video = ! exists $opt{V};
 my $remove_exe = ! exists $opt{X};
 my $recode_base64_text = ! exists $opt{B};
-my $replace_space = $opt{S} if exists $opt{S};
+my $replace_space = ' ' if exists $opt{S};
+my $remove_signed = exists $opt{Z};
 my $remove_octet = exists $opt{O};
 my $remove_application = exists $opt{'!'};
 my $remove_headers = exists $opt{D};
 my @headers = get_file($opt{D}) if $remove_headers;
 my $keep_attachments = exists $opt{K};
 my @keep = get_file($opt{K}) if $keep_attachments;
-my $removing = $remove_word || $remove_excel || $remove_html || $remove_rtf || $remove_pdf || $remove_tnef || $remove_apple || $remove_images || $remove_audio || $remove_video || $remove_exe || $recode_base64_text || $remove_octet || $remove_application || $remove_headers;
+my $removing = $remove_word || $remove_excel || $remove_html || $remove_rtf || $remove_pdf || $remove_tnef || $remove_apple || $remove_images || $remove_audio || $remove_video || $remove_exe || $recode_base64_text || $remove_signed || $remove_octet || $remove_application || $remove_headers || $mailbox || $raw;
 chop(my $tmp = `$mktemp -dq /tmp/textmail.XXXXXX`) if $removing && defined $mktemp;
 if (!$removing || (($? || !defined $tmp || ! -d $tmp) && !mkdir($tmp = "/tmp/textmail.$$", 0700)))
 {
@@ -967,6 +988,7 @@ formail(sub { <> }, sub
 {
 	my $m = mail2singlepart(textmail(mail2multipart(shift)));
 	delete_header($m, qr/(?:content-length|lines)/i);
+	delete $m->{mbox} if $raw;
 	print mail2str($mailbox ? mail2mbox($m) : $m);
 });
 
@@ -992,10 +1014,12 @@ sub textmail
 	my $entity = shift;
 	my $isapart = shift || 0;
 	my @parts = @{parts($entity)};
+	my $mbox = $entity->{mbox} if exists $entity->{mbox};
 
-	# Do nothing if this is encrypted or signed
+	# Do nothing if this is encrypted (or signed unless -Z)
 
-	return $entity if isa($entity, qr/multipart\/(?:signed|encrypted)/i);
+	return $entity if isa($entity, qr/multipart\/encrypted/i);
+	return $entity if !$remove_signed && isa($entity, qr/multipart\/signed/i);
 
 	# Remove headers
 
@@ -1011,6 +1035,7 @@ sub textmail
 			my $plain = $parts[isa($parts[0], 'text/plain') ? 0 : 1];
 			@{$plain->{headers}} = (grep(!/^content-/i, @{$entity->{headers}}), grep { /^content-/i } @{$plain->{headers}});
 			%{$plain->{header}} = (map { ($_, $entity->{header}->{$_}) } grep { !/^content-/i } keys %{$entity->{header}}), (map { ($_, $plain->{header}->{$_}) } grep { /^content-/i } keys %{$plain->{header}});
+			$plain->{mbox} = $mbox if defined $mbox;
 			return debase64($plain);
 		}
 	}
@@ -1024,7 +1049,22 @@ sub textmail
 			my $data = $parts[1];
 			@{$data->{headers}} = (grep(!/^content-/i, @{$entity->{headers}}), grep { /^content-/i } @{$data->{headers}});
 			%{$data->{header}} = (map { ($_, $entity->{header}->{$_}) } grep { !/^content-/i } keys %{$entity->{header}}), (map { ($_, $data->{header}->{$_}) } grep { /^content-/i } keys %{$data->{header}});
+			$data->{mbox} = $mbox if defined $mbox;
 			return mail2singlepart(textmail(mail2multipart($parts[1]), 0));
+		}
+	}
+
+	# Reduce signed attachments to just the signed data attachment
+
+	if ($remove_signed && isa($entity, 'multipart/signed') && @parts == 2)
+	{
+		if (isa($parts[1], param($entity, 'content-type', 'protocol')))
+		{
+			my $data = $parts[0];
+			@{$data->{headers}} = (grep(!/^content-/i, @{$entity->{headers}}), grep { /^content-/i } @{$data->{headers}});
+			%{$data->{header}} = (map { ($_, $entity->{header}->{$_}) } grep { !/^content-/i } keys %{$entity->{header}}), (map { ($_, $data->{header}->{$_}) } grep { /^content-/i } keys %{$data->{header}});
+			$data->{mbox} = $mbox if defined $mbox;
+			return mail2singlepart(textmail(mail2multipart($parts[0]), 0));
 		}
 	}
 
@@ -1164,7 +1204,7 @@ sub translate
 	return newmail(filename => $textpath, body => '') if !defined $cmd && $force;
 	my $origdata = body($part);
 	open A, ">$tmp/$origpath" and do { print A $origdata; close A };
-	my $failed = $origpath ne $textpath && system($cmd . ' ' . quotemeta("$tmp/$origpath") . ' > ' . quotemeta("$tmp/$textpath")) || -s "$tmp/$origpath" && -z "$tmp/$textpath";
+	my $failed; $failed = $origpath ne $textpath && system($_ . ' ' . quotemeta("$tmp/$origpath") . ' > ' . quotemeta("$tmp/$textpath")) || -s "$tmp/$origpath" && -z "$tmp/$textpath" or last for split /\|/, $cmd;
 	unlink "$tmp/$origpath" unless $origpath eq $textpath;
 	unlink("$tmp/$textpath"), return $part if $failed && !$force;
 	$part = newmail(filename => "$tmp/$textpath"); unlink "$tmp/$textpath";
@@ -1181,7 +1221,8 @@ sub debase64
 	return $entity unless $type =~ /^text\//i && encoding($entity) =~ /^base64$/i;
 	my $body = body($entity); $body =~ tr/\r//d;
 	my $name = filename($entity);
-	return newmail(type => $type, body => $body, (defined $name ? (name => $name) : ()));
+	my $mbox = $entity->{mbox} if exists $entity->{mbox};
+	return newmail(type => $type, body => $body, (defined $name ? (name => $name) : ()), (defined $mbox ? (mbox => $mbox) : ()));
 }
 
 # Parse a data file
