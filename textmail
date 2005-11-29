@@ -20,7 +20,7 @@ use strict;
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # or visit http://www.gnu.org/copyleft/gpl.html
 #
-# 20051121 raf <raf@raf.org>
+# 20051129 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -59,19 +59,19 @@ I<textmail> - mail filter to replace MS Word/HTML attachments with plain text
 
 =head1 DESCRIPTION
 
-I<textmail> filters a mail message, replacing MS Word, MS Excel, HTML, RTF
-and PDF attachments with the plain text contained therein. By default, the
-following attachments are also deleted: image, audio, video and MS Windows
-executables. MS winmail.dat attachments are replaced by their contents which
-are then replaced by text or deleted in the same fashion. Any of these
-actions can be suppressed with the command line options. Mail headers can
-also be selectively deleted.
+I<textmail> filters a mail message or mbox, replacing MS Word, MS
+Excel, HTML, RTF and PDF attachments with the plain text contained therein.
+By default, the following attachments are also deleted: image, audio, video
+and MS Windows executables. MS C<winmail.dat> attachments are replaced by
+any attachments contained therein which are then replaced by text or deleted
+in the same fashion. Any of these actions can be suppressed with the command
+line options. Mail headers can also be selectively deleted.
 
 This is useful for increasing the accessibility of mail messages (by
 reducing their dependence on proprietary file formats), for dramatically
 reducing their size (and the time it takes to download them and the time it
 takes to read them), and for dramatically reducing the risk of mail-borne
-viruses). Its intended use is as a preprocessor for mailing lists. This is
+viruses. Its intended use is as a preprocessor for mailing lists. This is
 more friendly than a strict "No Attachments" policy.
 
 =head1 OPTIONS
@@ -256,10 +256,11 @@ documents.
 Whenever I<textmail> is unable to translate any attachment into text, it
 will leave the attachment intact. This happens when the requisite
 translation software can't be found, when it runs but returns an error code,
-and when it produces an empty file. This option causes the empty translation
-to take the place of the original attachment. Only the name of the
-attachment is preserved. This is needed to ensure plain text even in the
-face of an MS Word document that contains no text (e.g. only images).
+and when it produces an empty file. It also happens when C<winmail.dat>
+attachments are corrupt. This option causes the empty translation to take
+the place of the original attachment. Only the name of the attachment is
+preserved. This is needed to ensure plain text even in the face of an MS
+Word document that contains no text (e.g. only images).
 
 =item C<-?>
 
@@ -342,12 +343,12 @@ I<xls2csv(1)>,
 I<lynx(1)>,
 I<pdftotext(1)>,
 I<pod2man(1)>,
-I<pod2html(1)>
+I<pod2html(1)>,
 C<http://raf.org/minimail/>
 
 =head1 AUTHOR
 
-20051121 raf <raf@raf.org>
+20051129 raf <raf@raf.org>
 
 =head1 URL
 
@@ -389,11 +390,13 @@ sub help
 		"  -f       - On translation error, keep translation, not original\n",
 		"  -?       - Print paths of helper applications then exit\n",
 		"\n",
-		"Filters a mail message, replacing MS Word, MS Excel, HTML, RTF and PDF\n",
-		"attachments with the plain text contained therein. By default, the\n",
-		"following attachments are also deleted: image, audio, video and MS\n",
-		"Windows executables. MS winmail.dat attachments are replaced by their\n",
-		"contents which are then replaced by text or deleted in the same fashion.\n";
+		"Filters a mail message or mbox, replacing MS Word, MS Excel, HTML, RTF and PDF\n",
+		"attachments with the plain text contained therein. By default, the following\n",
+		"attachments are also deleted: image, audio, video and MS Windows executables.\n",
+		"MS winmail.dat attachments are replaced by any attachments contained therein\n",
+		"which are then replaced by text or deleted in the same fashion. Any of these\n",
+		"actions can be suppressed with the command line options. Mail headers can also\n",
+		"be selectively deleted.\n";
 	exit;
 }
 
@@ -811,7 +814,7 @@ sub decode_quoted_printable
 	my $quoted = shift;
 	$quoted =~ tr/\x00-\x08\x0b-\x0c\x0e-\x19\x7f-\xff//d;
 	$quoted =~ s/=\n//g;
-	$quoted =~ s/=([0-9A-Fa-z]{2})/chr hex $1/eg;
+	$quoted =~ s/=([0-9A-Fa-f]{2})/chr hex $1/eg;
 	return $quoted;
 }
 
@@ -831,7 +834,7 @@ sub add_mimetypes
 
 	while (<M>)
 	{
-		s/#.*$//, s/^\s+//, s/\s+$//, next unless $_;
+		s/#.*$//, s/^\s+//, s/\s+$//; next unless $_;
 		my ($mimetype, $ext) = /^(\S+)\s+(.*)$/; next unless $ext;
 		$mimetype{$_} = $mimetype for split /\s+/, $ext;
 	}
@@ -847,18 +850,22 @@ sub ATTACH_DATA { 0x0006800f }
 sub ATTACH_FILENAME { 0x00018010 }
 sub ATTACH_RENDDATA { 0x00069002 }
 sub ATTACH_MODIFIED { 0x00038013 }
-sub VERSION { 0x00089006 }
-my $data; my @attachment; my $attachment; my $pos;
+my $data; my @attachment; my $attachment; my $pos; my $badtnef;
 
 sub winmail
 {
-	sub read_version
+	sub read_message_attribute
 	{
 		my $type = unpack 'C', substr $data, $pos, 1;
-		return unless defined $type && $type == MESSAGE;
-		my $version = unpack 'V', substr $data, $pos + 1, 4;
-		return unless $version == VERSION; $pos += 13;
+		return 0 unless defined $type && $type == MESSAGE; ++$pos;
+		my $id = unpack 'V', substr $data, $pos, 4; $pos += 4;
+		my $len = unpack 'V', substr $data, $pos, 4; $pos += 4;
+		++$badtnef, return 0 if $pos + $len > length $data;
+		my $buf = substr $data, $pos, $len; $pos += $len;
 		my $chk = unpack 'v', substr $data, $pos, 2; $pos += 2;
+		my $tot = unpack '%16C*', $buf;
+		++$badtnef unless $chk == $tot;
+		return $chk == $tot;
 	}
 
 	sub read_attribute_message_class
@@ -868,24 +875,11 @@ sub winmail
 		my $id = unpack 'V', substr $data, $pos + 1, 4;
 		return unless $id == MESSAGE_CLASS; $pos += 5;
 		my $len = unpack 'V', substr $data, $pos, 4; $pos += 4;
-		return 0 if $pos + $len > length $data;
-		my $buf = substr($data, $pos, $len); $pos += $len;
+		++$badtnef, return if $pos + $len > length $data;
+		my $buf = substr $data, $pos, $len; $pos += $len;
 		my $chk = unpack 'v', substr $data, $pos, 2; $pos += 2;
 		my $tot = unpack '%16C*', $buf;
-		return $chk == $tot;
-	}
-
-	sub read_message_attribute
-	{
-		my $type = unpack 'C', substr $data, $pos, 1;
-		return 0 unless defined $type && $type == MESSAGE; ++$pos;
-		my $id = unpack 'V', substr $data, $pos, 4; $pos += 4;
-		my $len = unpack 'V', substr $data, $pos, 4; $pos += 4;
-		return 0 if $pos + $len > length $data;
-		my $buf = substr($data, $pos, $len); $pos += $len;
-		my $chk = unpack 'v', substr $data, $pos, 2; $pos += 2;
-		my $tot = unpack '%16C*', $buf;
-		return $chk == $tot;
+		++$badtnef unless $chk == $tot;
 	}
 
 	sub read_attachment_attribute
@@ -895,11 +889,11 @@ sub winmail
 		my $id = unpack 'V', substr $data, $pos, 4; $pos += 4;
 		push @attachment, $attachment = {} if $id == ATTACH_RENDDATA;
 		my $len = unpack 'V', substr $data, $pos, 4; $pos += 4;
-		return 0 if $pos + $len > length $data;
-		my $buf = substr($data, $pos, $len); $pos += $len;
+		++$badtnef, return 0 if $pos + $len > length $data;
+		my $buf = substr $data, $pos, $len; $pos += $len;
 		my $chk = unpack 'v', substr $data, $pos, 2; $pos += 2;
 		my $tot = unpack '%16C*', $buf;
-		return 0 unless $chk == $tot;
+		++$badtnef, return 0 unless $chk == $tot;
 		$attachment->{body} = $buf, $attachment->{size} = length $buf if $id == ATTACH_DATA;
 		$buf =~ s/\x00+$//, $attachment->{filename} = $buf, $attachment->{type} = $mimetype{($attachment->{filename} =~ /\.([^.]+)$/) || 'other'} || 'application/octet-stream' if $id == ATTACH_FILENAME && !exists $attachment->{filename};
 		my $fname; $attachment->{filename} = $fname, $attachment->{type} = $mimetype{($attachment->{filename} =~ /\.([^.]+)$/) || 'other'} || 'application/octet-stream' if $id == ATTACH_ATTACHMENT && ($fname = realname($buf));
@@ -919,18 +913,17 @@ sub winmail
 	}
 
 	my $m = shift;
-	$pos = 0; $data = body($m); @attachment = ();
+	$pos = 0; $data = body($m); @attachment = (); $badtnef = 0;
 	my $signature = unpack 'V', substr($data, $pos, 4); $pos += 4;
 	return $m unless $signature == 0x223E9F78;
 	my $key = unpack 'v', substr($data, $pos, 2); $pos += 2;
 	my $type = unpack 'C', substr($data, $pos, 1);
 	return $m unless $type == MESSAGE || $type == ATTACHMENT;
-	read_version();
 	do {} while read_message_attribute();
 	read_attribute_message_class();
 	do {} while read_message_attribute();
 	do {} while read_attachment_attribute();
-	return map { newmail(%$_) } @attachment;
+	return ($badtnef) ? $m : map { newmail(%$_) } @attachment;
 }
 
 my %opt;
@@ -993,6 +986,8 @@ formail(sub { <> }, sub
 });
 
 rmdir $tmp or system "rm -rf $tmp";
+
+BEGIN { $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub { rmdir $tmp or system "rm -rf $tmp" if defined $tmp } }
 
 # Print paths to help applications then exit
 
@@ -1116,8 +1111,12 @@ sub textmail
 
 		if ($remove_tnef && isa($parts[$i], qr/ms-tnef/i, qr/winmail\.dat$/i))
 		{
-			splice @parts, $i, 1, winmail($parts[$i]);
-			--$i, next;
+			my @a = winmail($parts[$i]);
+			my $failed = @a == 1 && $a[0] == $parts[$i];
+			@a = () if $failed && $force;
+			splice @parts, $i, 1, @a;
+			--$i if !$failed || $force;
+			next;
 		}
 
 		# Remove images, audio, video, MS Windows executables, octet streams, application/*

@@ -1,3 +1,11 @@
+20051129
+
+    - Fixed regexp for quoted-printable =xx values (was [0-9A-Fa-z])
+    - Fixed comment stripping when parsing /etc/mime.types
+    - Fixed infinite loop on extremely corrupt winmail.dat attachments
+    - Corrupt winmail.dat attachments are now left intact (unless -f)
+    - Remove temp directory even when killed by a signal (int, quit, term)
+
 20051121
 
     - Removed the -S option's argument (now only option is space or underscore)
