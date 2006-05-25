@@ -887,6 +887,7 @@ sub winmail
 		my $type = unpack 'C', substr $data, $pos, 1;
 		return 0 unless defined $type && $type == ATTACHMENT; ++$pos;
 		my $id = unpack 'V', substr $data, $pos, 4; $pos += 4;
+		++$badtnef if $id == ATTACH_RENDDATA && @attachment && !exists $attachment->{body};
 		push @attachment, $attachment = {} if $id == ATTACH_RENDDATA;
 		my $len = unpack 'V', substr $data, $pos, 4; $pos += 4;
 		++$badtnef, return 0 if $pos + $len > length $data;
@@ -923,6 +924,7 @@ sub winmail
 	read_attribute_message_class();
 	do {} while read_message_attribute();
 	do {} while read_attachment_attribute();
+	++$badtnef if @attachment && !exists $attachment->{body};
 	return ($badtnef) ? $m : map { newmail(%$_) } @attachment;
 }
 
@@ -945,6 +947,9 @@ my $pdftotext = find('pdftotext');
 my $mktemp = find('mktemp');
 paths() if exists $opt{'?'};
 my @exe = qw(com exe pif dll ocx scr vbs js);
+my @image = qw(gif jpg jpeg jpe png bmp tiff tif jp2 jpf jpm);
+my @audio = qw(mp2 mp3 au aif wav ogg flac);
+my @video = qw(mpeg mpg mpe qt mov avi mj2);
 my $force = exists $opt{f};
 my $remove_word = (defined $antiword || $force) && ! exists $opt{W};
 my $remove_excel = (defined $xls2csv || $force) && ! exists $opt{E};
@@ -987,7 +992,7 @@ formail(sub { <> }, sub
 
 rmdir $tmp or system "rm -rf $tmp";
 
-BEGIN { $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub { rmdir $tmp or system "rm -rf $tmp" if defined $tmp } }
+BEGIN { $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub { rmdir $tmp or system "rm -rf $tmp" if defined $tmp; exit } }
 
 # Print paths to help applications then exit
 
@@ -1122,9 +1127,9 @@ sub textmail
 		# Remove images, audio, video, MS Windows executables, octet streams, application/*
 
 		if (!protected($parts[$i]) &&
-			($remove_images && mimetype($parts[$i]) =~ /^image\// ||
-			$remove_audio && mimetype($parts[$i]) =~ /^audio\// ||
-			$remove_video && mimetype($parts[$i]) =~ /^video\// ||
+			($remove_images && (mimetype($parts[$i]) =~ /^image\// || filename($parts[$i]) =~ /\.(?:@{[join '|', @image]})(?:\?=)?$/i) ||
+			$remove_audio && (mimetype($parts[$i]) =~ /^audio\// || filename($parts[$i]) =~ /\.(?:@{[join '|', @video]})(?:\?=)?$/i) ||
+			$remove_video && (mimetype($parts[$i]) =~ /^video\// || filename($parts[$i]) =~ /\.(?:@{[join '|', @audio]})(?:\?=)?$/i) ||
 			$remove_exe && mimetype($parts[$i]) =~ /^application\/octet-stream/ && filename($parts[$i]) =~ /\.(?:@{[join '|', @exe]})(?:\?=)?$/i ||
 			$remove_octet && mimetype($parts[$i]) =~ /^application\/octet-stream/ ||
 			$remove_application && mimetype($parts[$i]) =~ /^application\//))

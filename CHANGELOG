@@ -1,3 +1,9 @@
+20060525
+
+    - Fixed signal handler (wasn't calling exit after cleaning up!)
+    - Better detection of broken/bizarre winmail.dat attachments
+    - Detect image/audio/video attachments even when application/octet-stream
+
 20051129
 
     - Fixed regexp for quoted-printable =xx values (was [0-9A-Fa-z])
