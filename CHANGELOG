@@ -1,3 +1,9 @@
+20070803
+
+    - Set LANG=C when generating the manpage
+    - Detect html attachments even when mimetype is application/octet-stream
+    - Fix: stop optimizing blanks, might be signed (spotted by jmc at dolorespark.org)
+
 20060525
 
     - Fixed signal handler (wasn't calling exit after cleaning up!)

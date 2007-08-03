@@ -3,7 +3,7 @@ use strict;
 
 # textmail - mail filter to replace MS Word/HTML attachments with plain text
 #
-# Copyright (C) 2003-2005 raf <raf@raf.org>
+# Copyright (C) 2003-2007 raf <raf@raf.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ use strict;
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # or visit http://www.gnu.org/copyleft/gpl.html
 #
-# 20051129 raf <raf@raf.org>
+# 20070803 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -348,7 +348,7 @@ C<http://raf.org/minimail/>
 
 =head1 AUTHOR
 
-20051129 raf <raf@raf.org>
+20070803 raf <raf@raf.org>
 
 =head1 URL
 
@@ -356,74 +356,9 @@ C<http://raf.org/textmail/>
 
 =cut
 
-# Doco functions: usage and manpage (via $PAGER or as nroff or html)
+# Functions from minimail: see http://raf.org/minimail/
 
-sub help
-{
-	print
-		"usage: textmail [options]\n",
-		"options:\n",
-		"  -h       - Print the help message then exit\n",
-		"  -m       - Print the manpage then exit\n",
-		"  -w       - Print the manpage in html format then exit\n",
-		"  -r       - Print the manpage in nroff format then exit\n",
-		"  -M       - Output in mailbox format\n",
-		"  -T       - Output in raw mail format (for smtp)\n",
-		"  -W       - Don't replace MS Word attachments with text\n",
-		"  -E       - Don't replace MS Excel attachments with csv\n",
-		"  -H       - Don't replace HTML attachments with text\n",
-		"  -R       - Don't replace RTF attachments with text\n",
-		"  -P       - Don't replace PDF attachments with text\n",
-		"  -U       - Don't translate winmail.dat attachments\n",
-		"  -L       - Don't reduce appledouble attachments\n",
-		"  -I       - Don't delete image attachments\n",
-		"  -A       - Don't delete audio attachments\n",
-		"  -V       - Don't delete video attachments\n",
-		"  -X       - Don't delete MS Windows executable attachments\n",
-		"  -B       - Don't recode text that was base64-encoded\n",
-		"  -S       - Don't replace spaces in filenames with underscores\n",
-		"  -Z       - Do translate signed content (discards signatures)\n",
-		"  -O       - Delete all application/octet-stream attachments\n",
-		"  -!       - Delete all application/* attachments\n",
-		"  -D hdrs  - Delete headers (list of header prefixes and filenames)\n",
-		"  -K types - Keep attachments (list of mimetypes and filenames)\n",
-		"  -f       - On translation error, keep translation, not original\n",
-		"  -?       - Print paths of helper applications then exit\n",
-		"\n",
-		"Filters a mail message or mbox, replacing MS Word, MS Excel, HTML, RTF and PDF\n",
-		"attachments with the plain text contained therein. By default, the following\n",
-		"attachments are also deleted: image, audio, video and MS Windows executables.\n",
-		"MS winmail.dat attachments are replaced by any attachments contained therein\n",
-		"which are then replaced by text or deleted in the same fashion. Any of these\n",
-		"actions can be suppressed with the command line options. Mail headers can also\n",
-		"be selectively deleted.\n";
-	exit;
-}
-
-sub man
-{
-	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
-	system "pod2man $noquotes $0 | nroff -man | " . ($ENV{PAGER} || 'more');
-	exit;
-}
-
-sub nroff
-{
-	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
-	system "pod2man $noquotes $0";
-	exit;
-}
-
-sub html
-{
-	system "pod2html --noindex $0";
-	unlink glob 'pod2htm*';
-	exit;
-}
-
-# Minimail functions: see http://raf.org/minimail/
-
-sub formail # rfc2822 + mboxrd format (see www.qmail.org/man/man5/mbox.html)
+sub formail # rfc2822 + mboxrd format (see http://www.qmail.org/man/man5/mbox.html)
 {
 	sub mime # rfc2045, rfc2046
 	{
@@ -449,12 +384,10 @@ sub formail # rfc2822 + mboxrd format (see www.qmail.org/man/man5/mbox.html)
 		{
 			if (/^--\Q$mail->{mime_boundary}\E(--)?/)
 			{
-				$text = substr($text, 0, -1) if substr($text, -1) eq "\n";
-
 				if ($state eq 'preamble')
 				{
-					$mail->{mime_preamble} = $text if length $text;
 					$state = 'part';
+					$mail->{mime_preamble} = $text if length $text;
 				}
 				elsif ($state eq 'part')
 				{
@@ -532,11 +465,11 @@ sub mail2str
 	$head .= join '', @{$mail->{headers}} if exists $mail->{headers};
 	my $body = '';
 	$body .= $mail->{body} if exists $mail->{body};
-	$body .= "$mail->{mime_preamble}\n" if exists $mail->{mime_preamble};
+	$body .= "$mail->{mime_preamble}" if exists $mail->{mime_preamble};
 	$body .= "--$mail->{mime_boundary}\n" if exists $mail->{mime_boundary} && !exists $mail->{mime_parts};
-	$body .= join "\n", map { "--$mail->{mime_boundary}\n" . mail2str($_) } @{$mail->{mime_parts}} if exists $mail->{mime_parts};
-	$body .= "\n--$mail->{mime_boundary}--" if exists $mail->{mime_boundary};
-	$body .= "\n$mail->{mime_epilogue}" if exists $mail->{mime_epilogue};
+	$body .= join("", map { "--$mail->{mime_boundary}\n" . mail2str($_) } @{$mail->{mime_parts}}) if exists $mail->{mime_parts};
+	$body .= "--$mail->{mime_boundary}--\n" if exists $mail->{mime_boundary};
+	$body .= "$mail->{mime_epilogue}" if exists $mail->{mime_epilogue};
 	$body .= mail2str($mail->{mime_message}) if exists $mail->{mime_message};
 	$body =~ s/^(>*From )/>$1/mg, $body =~ s/([^\n])\n?\z/$1\n\n/ if exists $mail->{mbox};
 	return $head . "\n" . $body;
@@ -753,13 +686,13 @@ sub newmail # rfc2822, rfc2045, rfc2046, rfc2183 (also rfc3282, rfc3066, rfc2424
 sub decode
 {
 	my ($d, $e) = @_;
-	return $e =~ /^base64$/i ? decode_base64($d) : $e =~ /^quoted-printable$/i ? decode_quoted_printable($d) : $d;
+	return $e =~ /^base64$/i ? decode_base64($d) : $e =~ /^quoted-printable$/i ? decode_quoted_printable($d) : substr($d, 0, -1);
 }
 
 sub encode
 {
 	my ($d, $e) = @_;
-	return $e =~ /^base64$/i ? encode_base64($d) : $e =~ /^quoted-printable$/i ? encode_quoted_printable($d) : $d;
+	return $e =~ /^base64$/i ? encode_base64($d) : $e =~ /^quoted-printable$/i ? encode_quoted_printable($d) : $d . "\n";
 }
 
 sub choose_encoding # rfc2822, rfc2045
@@ -928,6 +861,75 @@ sub winmail
 	return ($badtnef) ? $m : map { newmail(%$_) } @attachment;
 }
 
+# Doco functions: usage and manpage (via $PAGER or as nroff or html)
+
+$ENV{LANG} = 'C';
+
+sub help
+{
+	print
+		"usage: textmail [options]\n",
+		"options:\n",
+		"  -h       - Print the help message then exit\n",
+		"  -m       - Print the manpage then exit\n",
+		"  -w       - Print the manpage in html format then exit\n",
+		"  -r       - Print the manpage in nroff format then exit\n",
+		"  -M       - Output in mailbox format\n",
+		"  -T       - Output in raw mail format (for smtp)\n",
+		"  -W       - Don't replace MS Word attachments with text\n",
+		"  -E       - Don't replace MS Excel attachments with csv\n",
+		"  -H       - Don't replace HTML attachments with text\n",
+		"  -R       - Don't replace RTF attachments with text\n",
+		"  -P       - Don't replace PDF attachments with text\n",
+		"  -U       - Don't translate winmail.dat attachments\n",
+		"  -L       - Don't reduce appledouble attachments\n",
+		"  -I       - Don't delete image attachments\n",
+		"  -A       - Don't delete audio attachments\n",
+		"  -V       - Don't delete video attachments\n",
+		"  -X       - Don't delete MS Windows executable attachments\n",
+		"  -B       - Don't recode text that was base64-encoded\n",
+		"  -S       - Don't replace spaces in filenames with underscores\n",
+		"  -Z       - Do translate signed content (discards signatures)\n",
+		"  -O       - Delete all application/octet-stream attachments\n",
+		"  -!       - Delete all application/* attachments\n",
+		"  -D hdrs  - Delete headers (list of header prefixes and filenames)\n",
+		"  -K types - Keep attachments (list of mimetypes and filenames)\n",
+		"  -f       - On translation error, keep translation, not original\n",
+		"  -?       - Print paths of helper applications then exit\n",
+		"\n",
+		"Filters a mail message or mbox, replacing MS Word, MS Excel, HTML, RTF and PDF\n",
+		"attachments with the plain text contained therein. By default, the following\n",
+		"attachments are also deleted: image, audio, video and MS Windows executables.\n",
+		"MS winmail.dat attachments are replaced by any attachments contained therein\n",
+		"which are then replaced by text or deleted in the same fashion. Any of these\n",
+		"actions can be suppressed with the command line options. Mail headers can also\n",
+		"be selectively deleted.\n";
+	exit;
+}
+
+sub man
+{
+	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
+	system "pod2man $noquotes $0 | nroff -man | " . ($ENV{PAGER} || 'more');
+	exit;
+}
+
+sub nroff
+{
+	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
+	system "pod2man $noquotes $0";
+	exit;
+}
+
+sub html
+{
+	system "pod2html --noindex $0";
+	unlink glob 'pod2htm*';
+	exit;
+}
+
+# Parse command line
+
 my %opt;
 use Getopt::Std;
 help unless getopts 'hmrwMTWEHRPLUIAVXBSZO!D:K:f?', \%opt;
@@ -980,7 +982,7 @@ if (!$removing || (($? || !defined $tmp || ! -d $tmp) && !mkdir($tmp = "/tmp/tex
 	exit;
 };
 
-# Filter the mail message on stdin into text on stdout
+# Filter mail message(s) on stdin into text on stdout
 
 formail(sub { <> }, sub
 {
@@ -994,7 +996,7 @@ rmdir $tmp or system "rm -rf $tmp";
 
 BEGIN { $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub { rmdir $tmp or system "rm -rf $tmp" if defined $tmp; exit } }
 
-# Print paths to help applications then exit
+# Print paths to helper applications then exit
 
 sub paths
 {
@@ -1030,7 +1032,7 @@ sub textmail
 
 	if ($remove_html && isa($entity, 'multipart/alternative') && @parts == 2)
 	{
-		if (isa($parts[0], 'text/plain') && isa($parts[1], 'text/html') || isa($parts[1], 'text/plain') && isa($parts[0], 'text/html'))
+		if (isa($parts[0], 'text/plain') && isa($parts[1], 'text/html', qr/\.html?$/i) || isa($parts[1], 'text/plain') && isa($parts[0], 'text/html', qr/\.html?$/i))
 		{
 			my $plain = $parts[isa($parts[0], 'text/plain') ? 0 : 1];
 			@{$plain->{headers}} = (grep(!/^content-/i, @{$entity->{headers}}), grep { /^content-/i } @{$plain->{headers}});
@@ -1090,7 +1092,7 @@ sub textmail
 
 		# Replace HTML attachments with plain text (via lynx -dump)
 
-		if ($remove_html && isa($parts[$i], 'text/html'))
+		if ($remove_html && isa($parts[$i], 'text/html', qr/\.html?$/i))
 		{
 			$parts[$i] = translate($parts[$i], 'html,htm', 'txt', (defined $lynx) ? "$lynx -dump -force_html" : undef);
 			next;
