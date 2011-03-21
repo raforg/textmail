@@ -1,3 +1,8 @@
+20110321
+
+    - Added Content-Disposition creation-date/modification-date/read-date parameters
+    - Preserved odd Content-* headers and Content-Disposition parameters (if recoding base64)
+
 20070803
 
     - Set LANG=C when generating the manpage

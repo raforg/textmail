@@ -3,7 +3,7 @@ use strict;
 
 # textmail - mail filter to replace MS Word/HTML attachments with plain text
 #
-# Copyright (C) 2003-2007 raf <raf@raf.org>
+# Copyright (C) 2003-2007, 2011 raf <raf@raf.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ use strict;
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # or visit http://www.gnu.org/copyleft/gpl.html
 #
-# 20070803 raf <raf@raf.org>
+# 20110321 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -661,7 +661,7 @@ sub newmail # rfc2822, rfc2045, rfc2046, rfc2183 (also rfc3282, rfc3066, rfc2424
 	my $type = $a{type} || (exists $a{parts} ? 'multipart/mixed' : exists $a{message} ? 'message/rfc822' : 'text/plain');
 	my $multi = $type =~ /^multipart\//i;
 	my $msg = $type =~ /^message\/rfc822$/i;
-	($a{body}, $a{modified}, $a{read}, $a{size}) = (do { local $/; my $b = <F>; close F; $b }, exists $a{modified} ? $a{modified} : rfc822date((stat _)[9]), exists $a{read} ? $a{read} : rfc822date((stat _)[8]), (stat _)[7]) if exists $a{filename} && !exists $a{body} && !exists $a{message} && !exists $a{parts} && -r $a{filename} && stat($a{filename}) && open F, $a{filename};
+	($a{body}, $a{created}, $a{modified}, $a{read}, $a{size}) = (do { local $/; my $b = <F>; close F; $b }, exists $a{created} ? $a{created} : rfc822date((stat _)[9]), exists $a{modified} ? $a{modified} : rfc822date((stat _)[9]), exists $a{read} ? $a{read} : rfc822date((stat _)[8]), (stat _)[7]) if exists $a{filename} && !exists $a{body} && !exists $a{message} && !exists $a{parts} && -r $a{filename} && stat($a{filename}) && open F, $a{filename};
 	($a{filename}) = $a{filename} =~ /([^\\\/]+)$/ if $a{filename};
 	my $bound = $multi ? join '', map { substr $bchar, int(rand(length $bchar)), 1 } 0..30 : '';
 	my $disp = $a{disposition} || ($type =~ /^(?:text\/|message\/rfc822)/i ? 'inline' : 'attachment');
@@ -673,7 +673,7 @@ sub newmail # rfc2822, rfc2045, rfc2046, rfc2183 (also rfc3282, rfc3066, rfc2424
 	use Sys::Hostname; append_header($m, "Message-ID: <@{[time]}.$$.@{[++$unique]}\@@{[hostname]}>") if grep { /^(?:date|from|sender|reply-to)$/i } keys %a and !grep { /^message-id$/i } keys %a;
 	append_header($m, "Content-Type: $type" . ($bound ? newparam('boundary', $bound) : '') . ($char =~ /^us-ascii$/i ? '' : newparam('charset', $char))) unless $type =~ /^text\/plain$/i && $char =~ /^us-ascii$/i;
 	append_header($m, "Content-Transfer-Encoding: $enc") unless $enc =~ /^7bit$/i;
-	append_header($m, "Content-Disposition: $disp" . ($a{filename} ? newparam('filename', $a{filename}) : '') . ($a{size} ? newparam('size', $a{size}) : '')) if $a{filename} || $a{size};
+	append_header($m, "Content-Disposition: $disp" . ($a{filename} ? newparam('filename', $a{filename}) : '') . ($a{size} ? newparam('size', $a{size}) : '') . ($a{created} ? newparam('creation-date', $a{created}) : '') . ($a{modified} ? newparam('modification-date', $a{modified}) : '') . ($a{read} ? newparam('read-date', $a{read}) : '')) if $a{filename} || $a{size} || $a{created} || $a{modified} || $a{read};
 	append_header($m, "Content-@{[ucfirst $_]}: $a{$_}") for grep { $a{$_} } qw(description language duration location base features alternative);
 	append_header($m, "Content-@{[uc $_]}: $a{$_}") for grep { $a{$_} } qw(id md5);
 	($m->{mime_type}, $m->{mime_boundary}, $m->{mime_parts}) = ($type =~ /^\s*([\w\/.-]+)/, $bound, $a{parts} || []) if $multi;
@@ -738,7 +738,9 @@ sub encode_quoted_printable
 	$quoted =~ s/([^!-<>-~ \t$binary])/sprintf '=%02X', ord $1/eg;
 	$quoted =~ s/((?:[^\r\n]{73,75})(?=[=])|(?:[^\r\n]{75}(?=[ \t]))|(?:[^\r\n]{75})(?=[^\r\n]{2})|(?:[^\r\n]{75})(?=[^\r\n]$))/$1=\n/g;
 	$quoted =~ s/([ \t])$/sprintf '=%02X', ord $1/emg;
-	$quoted .= "=\n" unless $quoted =~ /\n$/;
+	# Python and mutt both behave as though this is wrong
+	#$quoted .= "=\n" unless $quoted =~ /\n$/;
+	$quoted .= "\n";
 	return $quoted;
 }
 
@@ -1226,9 +1228,45 @@ sub debase64
 	my $type = mimetype($entity);
 	return $entity unless $type =~ /^text\//i && encoding($entity) =~ /^base64$/i;
 	my $body = body($entity); $body =~ tr/\r//d;
-	my $name = filename($entity);
+	my $filename = param($entity, 'content-disposition', 'filename') || param($entity, 'content-type', 'name');
+	my ($disposition) = header($entity, 'content-disposition');
+	$disposition =~ s/;.*// if defined $disposition;
+	my $size = param($entity, 'content-disposition', 'size');
+	my $created = param($entity, 'content-disposition', 'creation-date');
+	my $modified = param($entity, 'content-disposition', 'modification-date');
+	my $read = param($entity, 'content-disposition', 'read-date');
+	my $charset = param($entity, 'content-type', 'charset');
+	my ($description) = header($entity, 'content-description');
+	my ($language) = header($entity, 'content-language');
+	my ($duration) = header($entity, 'content-duration');
+	my ($location) = header($entity, 'content-location');
+	my ($base) = header($entity, 'content-base');
+	my ($features) = header($entity, 'content-features');
+	my ($alternative) = header($entity, 'content-alternative');
+	my ($id) = header($entity, 'content-id');
+	my ($md5) = header($entity, 'content-md5');
 	my $mbox = $entity->{mbox} if exists $entity->{mbox};
-	return newmail(type => $type, body => $body, (defined $name ? (name => $name) : ()), (defined $mbox ? (mbox => $mbox) : ()));
+	return newmail(
+		type => $type,
+		body => $body,
+		(defined $filename ? (filename => $filename) : ()),
+		(defined $disposition ? (disposition => $disposition) : ()),
+		(defined $charset ? (charset => $charset) : ()),
+		(defined $size ? (size => $size) : ()),
+		(defined $created ? (created => $created) : ()),
+		(defined $modified ? (modified => $modified) : ()),
+		(defined $read ? (read => $read) : ()),
+		(defined $description ? (description => $description) : ()),
+		(defined $language ? (language => $language) : ()),
+		(defined $duration ? (duration => $duration) : ()),
+		(defined $location ? (location => $location) : ()),
+		(defined $base ? (base => $base) : ()),
+		(defined $features ? (features => $features) : ()),
+		(defined $alternative ? (alternative => $alternative) : ()),
+		(defined $id ? (id => $id) : ()),
+		(defined $md5 ? (md5 => $md5) : ()),
+		(defined $mbox ? (mbox => $mbox) : ())
+	);
 }
 
 # Parse a data file
