@@ -1,0 +1,54 @@
+INSTALL
+=======
+Textmail is written in Perl and should run on any system with perl(1).
+There are no dependencies on any non-standard Perl modules. It does,
+however, depend on several external programs. See REQUIREMENTS below.
+
+To install textmail and its manpage (under /usr/local by default):
+
+    tar xzf textmail-X.Y.tar.gz
+    cd textmail-X.Y
+    make install
+
+To install under /usr:
+
+    make PREFIX=/usr install
+
+To uninstall textmail and its manpage (from under /usr/local):
+
+    make uninstall
+
+To uninstall textmail and its manpage (from under /usr):
+
+    make PREFIX=/usr uninstall
+
+For more details:
+
+    make help
+
+The manpage for textmail is textmail(1).
+
+REQUIREMENTS
+============
+Requires GNU make to install (but manual installation is easy).
+Requires perl (but no non-standard perl modules).
+Requires pod2man (comes with perl) to make the manpage.
+Requires pod2html (comes with perl) to make the html manpage.
+Requires the following external programs for various functions:
+
+  docx2txt  - To convert modern Word documents to text
+  antiword  - To convert old Word documents to text (default)
+  catdoc    - To convert old Word documents to text (alternative)
+  xlsx2csv  - To convert modern Excel documents to CSV
+  xls2csv   - To convert old Excel documents to CSV
+  lynx      - To convert HTML documents to text
+  pdftotext - To convert PDF documents to text
+  mktemp    - To create a temporary directory
+
+--------------------------------------------------------------------------------
+
+    URL: http://raf.org/textmail
+    GIT: https://github.com/raforg/textmail
+    Date: 20200625
+    Author: raf <raf@raf.org>
+

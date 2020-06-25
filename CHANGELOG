@@ -1,3 +1,27 @@
+CHANGELOG
+=========
+
+1.0 (20200625)
+
+    - When replacing text-versus-HTML alternatives, choose the translated HTML alternative instead
+    - Added -Y option: Choose the plain text alternative over the translated HTML (unless vestigial)
+    - Added -F types option: Save attachments to files on disk (list of mimetypes/exts/filenames)
+    - Added -G path option: Directory to save attachments in (for use with -F)
+    - Added -C spec option: Custom attachment translations (list of mimetype_or_ext:ext:command)
+    - Added Makefile, README.md, COPYING, LICENSE, INSTALL
+    - Added translation of .docx and .xlsx attachments using docx2txt and xlsx2csv
+    - Preserve original Content-Disposition creation-date/modification-date/read-date parameters
+    - Fixed bug: Wasn't preserving original Content-Type charset parameter for text/* translations
+    - Added .bat and .ps1 to the list of MS Windows executable filename extensions
+    - Added self-identifying and legal information to the help message
+    - Changed default mimetype for csv attachments inside winmail.dat to text/csv (was text/plain)
+    - Use /etc/mime.types if available for determining mimetypes for attachments inside winmail.dat
+    - Added handling of --help and --version command line options (but no other long options)
+    - Added -Q spec option: Custom patterns to identify vestigial text alternatives
+    - Fixed bug: Was assuming MS Windows executables all have mimetype application/octet
+    - Fixed manpage headers and footers
+    - Ensure Perl compatibility from Perl 5.6 to (probably) Perl 7
+
 20110321
 
     - Added Content-Disposition creation-date/modification-date/read-date parameters
@@ -68,4 +92,11 @@
 20040617
 
     - Initial version
+
+--------------------------------------------------------------------------------
+
+    URL: http://raf.org/textmail
+    GIT: https://github.com/raforg/textmail
+    Date: 20200625
+    Author: raf <raf@raf.org>
 
