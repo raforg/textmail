@@ -86,8 +86,9 @@ There is a manual entry:
 
 --------------------------------------------------------------------------------
 
-    URL: http://raf.org/textmail
+    URL: https://raf.org/textmail
     GIT: https://github.com/raforg/textmail
+    GIT: https://codeberg.org/raforg/textmail
     Date: 20200625
     Author: raf <raf@raf.org>
 

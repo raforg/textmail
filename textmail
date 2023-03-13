@@ -506,8 +506,9 @@ C<http://raf.org/minimail/>
 
 =head1 URL
 
-L<http://raf.org/textmail/>,
-L<https://github.com/raforg/textmail/>
+L<https://raf.org/textmail>,
+L<https://github.com/raforg/textmail>,
+L<https://codeberg.org/raforg/textmail>
 
 =cut
 
@@ -1119,8 +1120,9 @@ sub help
 		"Version: $version\n",
 		"Date: $date\n",
 		"Author: raf <raf\@raf.org>\n",
-		"URL: http://raf.org/textmail/\n",
-		"GIT: https://github.com/raforg/textmail/\n",
+		"URL: https://raf.org/textmail\n",
+		"GIT: https://github.com/raforg/textmail\n",
+		"GIT: https://codeberg.org/raforg/textmail\n",
 		"\n",
 		"Copyright (C) 2003-2007, 2011, 2020 raf <raf\@raf.org>\n",
 		"\n",
