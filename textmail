@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
+BEGIN { pop @INC if $INC[-1] eq '.' }
 use 5.006; # and v7
 use warnings;
 use strict;
-BEGIN { pop @INC if $INC[-1] eq '.' }
 
 # textmail - mail filter to replace MS Word/HTML attachments with plain text
 #
-# Copyright (C) 2003-2007, 2011, 2020 raf <raf@raf.org>
+# Copyright (C) 2003-2007, 2011, 2020-2023 raf <raf@raf.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ BEGIN { pop @INC if $INC[-1] eq '.' }
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-# 20200625 raf <raf@raf.org>
+# 20230313 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -498,11 +498,11 @@ I<pod2man(1)>,
 I<pod2html(1)>,
 I<vcalendar-filter>,
 I<mutt.vcard.filter>,
-C<http://raf.org/minimail/>
+C<https://raf.org/minimail>
 
 =head1 AUTHOR
 
-20200625 raf <raf@raf.org>
+20230313 raf <raf@raf.org>
 
 =head1 URL
 
@@ -1058,8 +1058,8 @@ sub winmail
 # Documentation functions: usage and manpage (via $PAGER or as nroff or html)
 
 my ($name) = $0 =~ /([^\/]+)$/;
-my $version = '1.0';
-my $date = '20200625';
+my $version = '1.1';
+my $date = '20230313';
 
 $ENV{LANG} = 'C';
 
@@ -1124,7 +1124,7 @@ sub help
 		"GIT: https://github.com/raforg/textmail\n",
 		"GIT: https://codeberg.org/raforg/textmail\n",
 		"\n",
-		"Copyright (C) 2003-2007, 2011, 2020 raf <raf\@raf.org>\n",
+		"Copyright (C) 2003-2007, 2011, 2020-2023 raf <raf\@raf.org>\n",
 		"\n",
 		"This is free software released under the terms of the GPLv2+:\n",
 		"\n",

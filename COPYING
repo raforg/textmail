@@ -2,7 +2,7 @@ COPYING
 =======
 textmail - mail filter to replace MS Word/HTML attachments with plain text
 
-Copyright (C) 2003-2007, 2011, 2020 raf <raf@raf.org>
+Copyright (C) 2003-2007, 2011, 2020-2023 raf <raf@raf.org>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +22,6 @@ Copyright (C) 2003-2007, 2011, 2020 raf <raf@raf.org>
     URL: https://raf.org/textmail
     GIT: https://github.com/raforg/textmail
     GIT: https://codeberg.org/raforg/textmail
-    Date: 20200625
+    Date: 20230313
     Author: raf <raf@raf.org>
 

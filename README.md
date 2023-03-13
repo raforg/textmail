@@ -82,13 +82,13 @@ programs. It should run on any system with the following software:
 
 There is a manual entry:
 
-  - [textmail(1)](http://raf.org/textmail/manpages/textmail.1.html) - the *textmail(1)* manpage
+  - [textmail(1)](https://raf.org/textmail/manual/textmail.1.html) - the *textmail(1)* manpage
 
 --------------------------------------------------------------------------------
 
     URL: https://raf.org/textmail
     GIT: https://github.com/raforg/textmail
     GIT: https://codeberg.org/raforg/textmail
-    Date: 20200625
+    Date: 20230313
     Author: raf <raf@raf.org>
 

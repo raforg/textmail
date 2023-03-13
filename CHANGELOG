@@ -1,6 +1,14 @@
 CHANGELOG
 =========
 
+1.1 (20230313)
+
+    - Replace original June 1991 GPLv2 with February 1999 (post-LGPLv2.1) GPLv2
+    - Fix mbox From_ header parsing (handle single-letter as an email address substitute) (spotted by github/traut21)
+    - Add CODE_OF_CONDUCT.md
+    - Add LICENSES/* and .reuse/dep5 (REUSE 3.0 compliant)
+    - Add references to the codeberg repository
+
 1.0 (20200625)
 
     - When replacing text-versus-HTML alternatives, choose the translated HTML alternative instead
@@ -98,6 +106,6 @@ CHANGELOG
     URL: https://raf.org/textmail
     GIT: https://github.com/raforg/textmail
     GIT: https://codeberg.org/raforg/textmail
-    Date: 20200625
+    Date: 20230313
     Author: raf <raf@raf.org>
 

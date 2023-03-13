@@ -1,6 +1,6 @@
 # textmail - mail filter to replace MS Word/HTML attachments with plain text
 #
-# Copyright (C) 2003-2007, 2011, 2020 raf <raf@raf.org>
+# Copyright (C) 2003-2007, 2011, 2020-2023 raf <raf@raf.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-# 20200625 raf <raf@raf.org>
+# 20230313 raf <raf@raf.org>
 
 NAME := textmail
-VERSION := 1.0
+VERSION := 1.1
 DIST := $(NAME)-$(VERSION)
 DISTDIR := ../$(DIST)
 DISTFILE := ../$(DIST).tar.gz
