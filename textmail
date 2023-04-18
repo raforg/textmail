@@ -729,7 +729,7 @@ sub header_format # rfc2822, rfc2047
 {
 	my ($h, $l, $c) = @_;
 	$h =~ s/^\s+//, $h =~ s/\s+$//, $h =~ tr/ \t\n\r/ /s;
-	$h = join ' ', map { /^".*"$/ ? $_ : !tr/\x80-\xff// ? $_ : tr/a-zA-Z0-9!*\/+-//c > length >> 1 ? join(' ', map { '=?' . ($c || 'iso-8859-1') . ($l ? "*$l" : '') . '?b?' . substr(encode_base64($_), 0, -1) . '?=' } (split /\n/, (s/([^\r\n]{38})/$1\n/g, $_))) : join(' ', map { '=?' . ($c || 'iso-8859-1') . ($l ? "*$l" : '') . '?q?' . substr(encode_quoted_printable($_), 0, -2) . '?=' } (split /\n/, (s/([^\r\n]{17})/$1\n/g, $_))) } map { /^[^\s"]*".*"[^\s"]*$/ ? $_ : split / / } split /(\S*"(?:\\[^\r\n]|[^\\"])*"\S*)/, $h;
+	$h = join ' ', map { /^".*"$/ ? $_ : !tr/\x80-\xff// ? $_ : tr/a-zA-Z0-9!*\/+-//c > length >> 1 ? join(' ', map { '=?' . ($c || 'iso-8859-1') . ($l ? "*$l" : '') . '?b?' . substr(encode_base64($_), 0, -1) . '?=' } (split /\n/, (s/([^\r\n]{38})/$1\n/g, $_))) : join(' ', map { '=?' . ($c || 'iso-8859-1') . ($l ? "*$l" : '') . '?q?' . substr(encode_quoted_printable($_), 0, -1) . '?=' } (split /\n/, (s/([^\r\n]{17})/$1\n/g, $_))) } map { /^[^\s"]*".*"[^\s"]*$/ ? $_ : split / / } split /(\S*"(?:\\[^\r\n]|[^\\"])*"\S*)/, $h;
 	my ($f, $p, $lf) = ('', 0); $lf = length $f, $f .= ($lf && $lf + ($lf ? 1 : 0) + length($_) - $p > 78) ? ($p = $lf, "\n") : '', $f .= $f ? ' ' : '', $f .= $_ for map { /^\S*".*"\S*$/ ? $_ : grep { length } split / / } split /(\S*"(?:\\[^\r\n]|[^\\"\r\n])*"\S*)/, $h; # fold
 	return $f . "\n";
 }
