@@ -21,7 +21,7 @@ use strict;
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-# 20230313 raf <raf@raf.org>
+# 20230508 raf <raf@raf.org>
 
 =head1 NAME
 
@@ -502,7 +502,7 @@ C<https://raf.org/minimail>
 
 =head1 AUTHOR
 
-20230313 raf <raf@raf.org>
+20230508 raf <raf@raf.org>
 
 =head1 URL
 
@@ -1075,8 +1075,8 @@ sub winmail
 # Documentation functions: usage and manpage (via $PAGER or as nroff or html)
 
 my ($name) = $0 =~ /([^\/]+)$/;
-my $version = '1.1';
-my $date = '20230313';
+my $version = '1.1.1';
+my $date = '20230508';
 
 $ENV{LANG} = 'C';
 

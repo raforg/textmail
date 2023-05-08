@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <https://www.gnu.org/licenses/>.
 #
-# 20230313 raf <raf@raf.org>
+# 20230508 raf <raf@raf.org>
 
 NAME := textmail
-VERSION := 1.1
+VERSION := 1.1.1
 DIST := $(NAME)-$(VERSION)
 DISTDIR := ../$(DIST)
 DISTFILE := ../$(DIST).tar.gz

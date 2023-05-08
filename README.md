@@ -66,7 +66,7 @@ License](https://www.gnu.org/licenses/), either version 2 of the License, or
 *textmail* is written in Perl and executes several external
 programs. It should run on any system with the following software:
 
-  - perl
+  - perl (v5.14 or later)
   - docx2txt
   - antiword
   - catdoc
@@ -89,6 +89,6 @@ There is a manual entry:
     URL: https://raf.org/textmail
     GIT: https://github.com/raforg/textmail
     GIT: https://codeberg.org/raforg/textmail
-    Date: 20230313
+    Date: 20230508
     Author: raf <raf@raf.org>
 

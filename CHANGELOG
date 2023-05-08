@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+1.1.1 (20230508)
+
+    - Update internal minimail functions (UTF-8 detection, winmail.dat fix)
+
 1.1 (20230313)
 
     - Replace original June 1991 GPLv2 with February 1999 (post-LGPLv2.1) GPLv2
@@ -106,6 +110,6 @@ CHANGELOG
     URL: https://raf.org/textmail
     GIT: https://github.com/raforg/textmail
     GIT: https://codeberg.org/raforg/textmail
-    Date: 20230313
+    Date: 20230508
     Author: raf <raf@raf.org>
 
