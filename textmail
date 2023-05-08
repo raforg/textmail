@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 BEGIN { pop @INC if $INC[-1] eq '.' }
-use 5.006; # and v7
+use 5.014;
 use warnings;
 use strict;
 
@@ -566,6 +566,8 @@ sub formail # rfc2822 + mboxrd format (see http://www.qmail.org/man/man5/mbox.ht
 	{
 		my ($mail, $parent) = @_;
 		my @lines = split /(?<=\n)/, $mail;
+		# Needed to cope (badly) when message/rfc822 attachments incorrectly start with /^From / (thanks libpst)
+		@lines = ('') unless @lines;
 		formail(sub { shift @lines }, sub { $mail = shift }, $parent);
 		return $mail;
 	}
@@ -710,26 +712,37 @@ sub header
 {
 	my ($m, $h) = @_;
 	return () unless exists $m->{header} && exists $m->{header}->{lc $h};
-	return map { s/\n\s+/ /g; $_ = header_display($_); /^$h:\s*(.*)\s*$/i; $1 } @{$m->{header}->{lc $h}};
+	return map { s/\n\s+/ /g; header_display($_) =~ /^$h:\s*(.*)\s*$/i; $1 } @{$m->{header}->{lc $h}};
 }
 
-my $encword = qr/=\?(us-ascii|iso-8859-\d)(?:\*\w+)?\?(q|b)\?([^? ]+)\?=/i; # encoded words to display (should really only decode ascii)
+my $encword = qr/=\?([^*?]+)(?:\*\w+)?\?(q|b)\?([^? ]+)\?=/i; # encoded words to display
 sub header_display # rfc2047, rfc2231
 {
+	use Encode ();
 	return join '',
 		map { tr/ \t/ /s; $_ } # finally, squeeze multiple whitespace
 		map { tr/\x00-\x08\x0b-\x1f\x7f//d; $_ } # strip control characters
-		map { s/$encword/lc $2 eq 'q' ? join ' ', split '_', decode_quoted_printable($3), -1 : decode_base64($3)/ieg; $_ } # decode encoded words
+		map { s/$encword/(defined Encode::find_encoding($1)) ? Encode::decode($1, (lc $2 eq 'q') ? decode_quoted_printable($3, 1) : decode_base64($3)) : $&/ieg; $_ } # decode encoded words if possible
 		map { s/($encword)\s+($encword)/$1$5/g while /$encword\s+$encword/; $_ } # strip space between encoded words that we're about to decode
 		map { s/\((?:\\[^\r\n]|[^\\()])*\)//g unless /^".*"$/; $_ } # strip (comments) outside "quoted strings"
 		split /("(?:\\[^\r\n]|[^\\"])*")/, shift; # split on "quoted strings"
+}
+
+sub charsetof
+{
+	my $s = shift;
+	return 'us-ascii' if !defined $s || $s =~ /^[\x00-\x7f]*$/;
+	#return 'utf-8' if $s =~ /^(?:[\x00-\x7f]|[\xc2-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf]{2}|[\xf0-\xf4][\x80-\xbf]{3})+$/; # This won't work until perl v5.38
+	return 'utf-8' if defined eval { Encode::decode 'UTF-8', $s, Encode::FB_CROAK };
+	return (defined $ENV{LANG} && $ENV{LANG} =~ /^.+\.(.+)$/) && $1 ne 'UTF-8' ? lc $1 : 'iso-8859-1'; # Make something up
 }
 
 sub header_format # rfc2822, rfc2047
 {
 	my ($h, $l, $c) = @_;
 	$h =~ s/^\s+//, $h =~ s/\s+$//, $h =~ tr/ \t\n\r/ /s;
-	$h = join ' ', map { /^".*"$/ ? $_ : !tr/\x80-\xff// ? $_ : tr/a-zA-Z0-9!*\/+-//c > length >> 1 ? join(' ', map { '=?' . ($c || 'iso-8859-1') . ($l ? "*$l" : '') . '?b?' . substr(encode_base64($_), 0, -1) . '?=' } (split /\n/, (s/([^\r\n]{38})/$1\n/g, $_))) : join(' ', map { '=?' . ($c || 'iso-8859-1') . ($l ? "*$l" : '') . '?q?' . substr(encode_quoted_printable($_), 0, -1) . '?=' } (split /\n/, (s/([^\r\n]{17})/$1\n/g, $_))) } map { /^[^\s"]*".*"[^\s"]*$/ ? $_ : split / / } split /(\S*"(?:\\[^\r\n]|[^\\"])*"\S*)/, $h;
+	use Encode (); $h = Encode::encode('UTF-8', $h) if grep { ord > 255 } split //, $h;
+	$h = join ' ', map { /^".*"$/ ? $_ : !tr/\x80-\xff// ? $_ : tr/a-zA-Z0-9!*\/+-//c > length >> 1 ? join(' ', map { '=?' . ($c || charsetof($h)) . ($l ? "*$l" : '') . '?b?' . substr(encode_base64($_), 0, -1) . '?=' } (split /\n/, (s/([^\r\n]{38})/$1\n/g, $_))) : join(' ', map { '=?' . ($c || charsetof($h)) . ($l ? "*$l" : '') . '?q?' . substr(encode_quoted_printable($_, 1), 0, -1) . '?=' } (split /\n/, (s/([^\r\n]{17})/$1\n/g, $_))) } map { /^[^\s"]*".*"[^\s"]*$/ ? $_ : split / / } split /(\S*"(?:\\[^\r\n]|[^\\"])*"\S*)/, $h;
 	my ($f, $p, $lf) = ('', 0); $lf = length $f, $f .= ($lf && $lf + ($lf ? 1 : 0) + length($_) - $p > 78) ? ($p = $lf, "\n") : '', $f .= $f ? ' ' : '', $f .= $_ for map { /^\S*".*"\S*$/ ? $_ : grep { length } split / / } split /(\S*"(?:\\[^\r\n]|[^\\"\r\n])*"\S*)/, $h; # fold
 	return $f . "\n";
 }
@@ -745,7 +758,7 @@ sub param # rfc2231, rfc2045
 		{
 			my ($n, $v) = ($1, $2);
 			$v =~ s/^"//, $v =~ s/"$//, $v =~ s/\\(.)/$1/g if $v =~ /^".*"$/;
-			$v =~ s/^(?:us-ascii|iso-8859-\d)'\w+'//i and $decode = 1;
+			$v =~ s/^(?:us-ascii|utf-8|iso-8859-\d{1,2})'\w+'//i and $decode = 1;
 			$v =~ s/%([\da-fA-f]{2})/chr hex $1/eg if $decode && substr($n, -1) eq '*';
 			push @p, [lc $n, $v];
 		}
@@ -790,7 +803,7 @@ sub body
 sub parts
 {
 	my ($m, $p) = @_;
-	return [@{$m->{mime_parts}}] unless defined $p;
+	return exists $m->{mime_parts} ? [@{$m->{mime_parts}}] : [] unless defined $p;
 	$m->{mime_parts} = [@{$p}];
 }
 
@@ -800,7 +813,7 @@ sub newparam # rfc2231, rfc2045
 	my $high = $v =~ tr/\x80-\xff//;
 	my $ctrl = $v =~ tr/\x00-\x06\x0e-\x1f\x7f//;
 	my $enc = $high || $ctrl ? '*' : '';
-	$c = ('high' ? 'iso-8859-1' : 'us-ascii') if $enc && !$c;
+	$c = charsetof($v) if $enc && !$c;
 	$l = 'en' if $c && !$l;
 	$v = "$c'$l'$v" if $enc;
 	my @p; push @p, $_ while $_ = substr $v, 0, 40, '';
@@ -829,7 +842,7 @@ sub newmail # rfc2822, rfc2045, rfc2046, rfc2183 (also rfc3282, rfc3066, rfc2424
 	($a{filename}) = $a{filename} =~ /([^\\\/]+)$/ if $a{filename};
 	my $bound = $multi ? join '', map { substr $bchar, int(rand(length $bchar)), 1 } 0..30 : '';
 	my $disp = $a{disposition} || ($type =~ /^(?:text\/|message\/rfc822)/i ? 'inline' : 'attachment');
-	my $char = $a{charset} || ($a{body} && $a{body} =~ tr/\x80-\xff// ? 'iso-8859-1' : 'us-ascii');
+	my $char = $a{charset} || charsetof($a{body});
 	my $enc = $a{encoding} || ($multi || $msg ? '7bit' : $a{body} ? choose_encoding($a{body}) : '7bit');
 	append_header($m, $a[$_] . ': ' . $a[$_ + 1]) for grep { $_ % 2 == 0 && $a[$_] =~ /^[A-Z]/ } 0..$#a;
 	append_header($m, 'Date: ' . rfc822date(time)) if grep { /^(?:date|from|sender|reply-to)$/i } keys %a and !grep { /^date$/i } keys %a;
@@ -898,8 +911,10 @@ sub decode_base64 # MIME::Base64 (Gisle Aas)
 sub encode_quoted_printable
 {
 	my $quoted = shift;
+	my $qcode = shift;
 	my $binary = ($quoted =~ tr/\x00-\x06\x0e-\x1f\x7f//) ? '' : '\r\n';
 	$quoted =~ s/([^!-<>-~ \t$binary])/sprintf '=%02X', ord $1/eg;
+	$quoted =~ s/([?_])/sprintf '=%02X', ord $1/eg if $qcode;
 	$quoted =~ s/((?:[^\r\n]{73,75})(?=[=])|(?:[^\r\n]{75}(?=[ \t]))|(?:[^\r\n]{75})(?=[^\r\n]{2})|(?:[^\r\n]{75})(?=[^\r\n]$))/$1=\n/g;
 	$quoted =~ s/([ \t])$/sprintf '=%02X', ord $1/emg;
 	# Python and mutt both behave as though this is wrong
@@ -911,8 +926,10 @@ sub encode_quoted_printable
 sub decode_quoted_printable
 {
 	my $quoted = shift;
-	$quoted =~ tr/\x00-\x08\x0b-\x0c\x0e-\x19\x7f-\xff//d;
+	my $qcode = shift;
+	$quoted =~ tr/\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\xff//d;
 	$quoted =~ s/=\n//g;
+	$quoted =~ s/_/ /g if $qcode;
 	$quoted =~ s/=([0-9A-Fa-f]{2})/chr hex $1/eg;
 	return $quoted;
 }
@@ -1039,8 +1056,8 @@ sub winmail
 		return $name;
 	}
 
-	add_mimetypes();
 	my $m = shift;
+	add_mimetypes();
 	$pos = 0; $data = body($m); @attachment = (); $badtnef = 0;
 	my $signature = unpack 'V', substr($data, $pos, 4); $pos += 4;
 	return $m unless $signature == 0x223E9F78;
